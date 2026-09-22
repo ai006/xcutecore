@@ -2,7 +2,7 @@
 
 You are building a small computer in C++: a RISC-V RV32I CPU and a memory, connected by a bus, with instructions and data sharing one address space (Von Neumann). The CPU starts unpipelined: each instruction goes through fetch, decode, execute, memory, and write back before the next one starts. Once it runs real programs and passes the official tests, you turn it into a cycle-level 5-stage pipeline, then add branch prediction and caches.
 
-Every lab lists objectives, tests, a "done when" check, and the C++ it exercises. Lab 0 is the exception: a step-by-step setup walkthrough with code. Objectives are numbered by lab (2.3 is Lab 2, objective 3), and `hints.md` uses the same numbers. Each objective says what goes in, what comes out, and gives an example; `hints.md` covers how to build it. Try each objective before opening its hint. Names of functions, classes, files, and flags are suggestions: rename them freely, but keep the inputs and outputs.
+Every lab lists objectives, tests, a "done when" check, and the C++ it exercises. Lab 0 is the exception: a step-by-step setup walkthrough with code. Objectives are numbered by lab (2.3 is Lab 2, objective 3), and `hints.md` uses the same numbers. Try each objective before opening its hint.
 
 ## Ground rules
 
@@ -27,36 +27,6 @@ Every lab lists objectives, tests, a "done when" check, and the C++ it exercises
 | 8. Extensions | menu | Pick what interests you | |
 
 Lab sizes (S, M, L) are relative effort.
-
-## How the pieces fit
-
-What owns or uses what, and which lab builds it:
-
-```
-rvsim (the program you run)                         sim/main.cpp, Lab 8
-└── CPU: SingleCycleCpu or PipelinedCpu             Lab 7, Labs 10 to 12
-    ├── RegisterFile, ArchState, CommitRecord       Lab 3
-    ├── decode() and the Instruction objects        Labs 5, 6
-    │   └── field extractors, immediate builders    Lab 4
-    │       └── bit helpers, type aliases           Lab 1
-    ├── BranchPredictor, BTB                        Labs 13, 14
-    └── MemoryHierarchy (caches)                    Labs 15, 16
-        └── Bus                                     Lab 2
-            ├── Memory (instructions and data)      Lab 2
-            └── ConsoleDevice                       Lab 8
-```
-
-Until Lab 15 the CPU talks to the `Bus` directly.
-
-The life of one instruction on the single-cycle CPU, using `add a2, a0, a1` at 0x80000008 from your Lab 0 program:
-
-1. **Fetch:** the CPU asks the bus for 4 bytes at pc 0x80000008 and gets the `Word` 0x00B50633. (Labs 2, 7)
-2. **Decode:** `decode()` uses the bit helpers to cut the word into fields (opcode 0x33, rd 12, rs1 10, rs2 11, funct3 0, funct7 0) and returns an instruction object for ADD. The CPU reads a0 = 5 and a1 = 7 from the register file and hands them to it. (Labs 1, 4, 5)
-3. **Execute:** the object computes 5 + 7 = 12 and sets its next pc to 0x8000000C. (Lab 6)
-4. **Memory:** nothing for ADD. A load or store would use the bus here. (Labs 2, 6)
-5. **Write back:** 12 goes into a2, and `step()` returns a `CommitRecord`: pc 0x80000008, word 0x00B50633, x12 = 12. (Labs 3, 7)
-
-The pipeline (Labs 10 to 12) runs the same five steps, with up to five instructions in different steps at once.
 
 ---
 
@@ -457,70 +427,35 @@ git tag v0.0
 
 ### Lab 1: Bit toolkit (S)
 
-**Goal:** small, heavily tested helpers that pull bit fields out of a 32-bit word and sign-extend them. Everything after this lab depends on them.
-
-**Where this fits:** every instruction your CPU runs arrives as one 32-bit number. In Lab 4 the decoder uses these helpers to cut that number into fields (opcode, rd, rs1, and so on) and to rebuild immediates. After decode, nothing else in the CPU touches raw bits.
-
-All helpers work on plain integers: a `Word` goes in, and a `Word` or a `bool` comes out.
-
-**Files:** `include/rvsim/types.hpp` for the aliases and `include/rvsim/bits.hpp` for the helpers. Both can be header-only, since `constexpr` functions live in headers. Put the tests in `tests/unit/bits_test.cpp` and add it to the `unit_tests` source list.
+**Goal:** small, heavily tested helpers for bit fields and sign extension. Everything after this lab depends on them.
 
 **Objectives**
-- [X] 1.1 **Type aliases** in `types.hpp`, inside the `rvsim` namespace:
-  - `Word`: unsigned 32-bit. Register values and raw instructions.
-  - `SWord`: signed 32-bit. Used only where an operation needs signed meaning.
-  - `Addr`: unsigned 32-bit memory address.
-  - `RegIndex`: a register number, 0 to 31.
-- [X] 1.2 **`bits(value, hi, lo)`**. Takes a `Word` and two bit positions with 0 ≤ `lo` ≤ `hi` ≤ 31. Returns the bits from `hi` down to `lo` as a `Word`, moved down so that bit `lo` lands at bit 0. Example: `bits(0x00B50633, 11, 7)` returns 12. That word is `add a2, a0, a1` from your Lab 0 program, and bits 11 to 7 are its rd field (a2 is x12).
-- [X] 1.3 **`bit(value, n)`**. Takes a `Word` and a position from 0 to 31. Returns `true` if that bit is 1. Example: `bit(0x40A586B3, 30)` is `true`; that bit is the one difference between `sub a3, a1, a0` and an ADD.
-- [X] 1.4 **`sign_extend(value, width)`**. Takes a `Word` whose low `width` bits (1 to 32) hold a two's complement number, and returns that number as a 32-bit `Word` by copying bit `width - 1` into every bit above it. Bits above `width` in the input are ignored. Example: the 12-bit field 0xFFF means -1, so `sign_extend(0xFFF, 12)` returns 0xFFFFFFFF, while `sign_extend(0x7FF, 12)` returns 0x000007FF (2047). The result stays a `Word`: you will add it to register values with unsigned arithmetic, which wraps correctly.
-- [X] 1.5 Make 1.2 to 1.4 `constexpr`, `noexcept`, and `[[nodiscard]]`, and check their preconditions with `assert`. A bad bit position is a bug in your simulator, not in the guest program.
-- [X] 1.6 Optional: **`to_binary_string(value)`** for debugging. Returns a `std::string` with all 32 bits, most significant first, in groups of four. Example: 0x00B50633 becomes `0000 0000 1011 0101 0000 0110 0011 0011`. Handy in test failure messages and when you check field boundaries in Lab 4.
-
-**Worked examples** (your first test cases)
-
-| Call | Returns | Why |
-|---|---|---|
-| `bits(0x00B50633, 6, 0)` | `0x33` | opcode of `add a2, a0, a1` |
-| `bits(0x00B50633, 11, 7)` | `12` | rd: a2 is x12 |
-| `bits(0x00B50633, 19, 15)` | `10` | rs1: a0 is x10 |
-| `bits(0x00B50633, 24, 20)` | `11` | rs2: a1 is x11 |
-| `bits(0xDEADBEEF, 31, 28)` | `0xD` | top four bits |
-| `bits(0xDEADBEEF, 31, 0)` | `0xDEADBEEF` | full width |
-| `bit(0x40A586B3, 30)` | `true` | `sub a3, a1, a0` |
-| `bit(0x00B50633, 30)` | `false` | `add a2, a0, a1` |
-| `sign_extend(0x7FF, 12)` | `0x000007FF` | largest 12-bit value, 2047 |
-| `sign_extend(0x800, 12)` | `0xFFFFF800` | most negative 12-bit value, -2048 |
-| `sign_extend(0xFFF, 12)` | `0xFFFFFFFF` | -1, the immediate of `addi a0, zero, -1` (0xFFF00513) |
-| `sign_extend(0xABC00FFF, 12)` | `0xFFFFFFFF` | bits above bit 11 are ignored |
-| `sign_extend(0x1, 1)` | `0xFFFFFFFF` | a 1-bit field holding 1 is -1 |
-| `sign_extend(0x12345678, 32)` | `0x12345678` | full width: unchanged |
+- [ ] 1.1 Extract bits `hi` down to `lo` from a 32-bit value.
+- [ ] 1.2 Test a single bit.
+- [ ] 1.3 Sign-extend an N-bit value to 32 bits.
+- [ ] 1.4 Make every helper `constexpr` and `noexcept`.
+- [ ] 1.5 Define type aliases for a register value, a signed register value, an address, and a raw instruction. Use them everywhere from now on.
 
 **Tests**
-- [X] T1.1 Compile-time checks: turn a few rows of the table into `static_assert`s.
-- [X] T1.2 Runtime tests: every row of the table; bits 0 and 31 of 0x80000001; `bits` with `hi` equal to `lo`; and `sign_extend` at widths 1, 5, 8, 12, 13, 16, 20, 21, and 32, using the largest positive and the most negative value at each width. (13 and 21 are the widths of the B and J immediates.)
-- [X] T1.3 Optional: a death test showing that `bits(x, 3, 7)` (hi below lo) stops the debug build at the assert.
+- [ ] T1.1 Compile-time checks with `static_assert` on a few known values.
+- [ ] T1.2 Runtime tests: full-width extraction, single bits, bit 31, and sign extension of positive, negative, largest, and smallest values at widths 1, 5, 8, 12, 16, 20, and 32.
 
 **Done when:** all tests pass in the sanitizer build.
 
-**C++ focus:** `constexpr`, `static_assert`, `assert`, fixed-width integer types, `using` aliases, `[[nodiscard]]`, integer promotion and shift rules.
+**C++ focus:** `constexpr`, `static_assert`, fixed-width integer types, `using` aliases, `[[nodiscard]]`, integer promotion and shift rules.
 
 ### Lab 2: Memory and the bus (M)
 
 **Goal:** one address space for instructions and data. The CPU only talks to a bus, the bus routes each access to a device, and memory is one of those devices.
 
-**Where this fits:** in Lab 7 the fetch stage asks the bus for 4 bytes at the pc, and the memory stage asks it to load or store data. Both reach the same `Memory` object, which is what makes this a Von Neumann machine. In Lab 8 you map a console device next to memory, and in Lab 15 caches sit in front of the bus.
-
-Every access has an address (or, inside a device, an offset), a width of 1, 2, or 4 bytes, and a value that travels as a `Word`. Reads return the bytes zero-extended to a `Word`; writes store only the low `width` bytes of the `Word`. Sign extension for LB and LH happens later, in the load instruction (Lab 6), not here.
-
 **Objectives**
-- [ ] 2.1 **Abstract `Device`**. `size()` returns how many bytes the device covers. Reads and writes of 1, 2, or 4 bytes take an offset from the device's first byte, not a bus address.
-- [ ] 2.2 **`Memory`**, derived from `Device`. Its constructor takes a size in bytes and allocates that much storage, all zeros. This is where the program's instructions and data will live.
-- [ ] 2.3 **Little-endian** multi-byte access. Example: writing 0x12345678 as 4 bytes at offset 0 stores the bytes 78 56 34 12 at offsets 0 to 3. A 2-byte read at offset 1 then returns 0x3456, and a 1-byte read at offset 3 returns 0x12.
-- [ ] 2.4 **Bounds checking** that throws a custom exception, `MemoryFault`, carrying the address, the width, and the access type (fetch, read, or write). Example: in a 16-byte memory, a 4-byte read at offset 12 works and one at offset 13 throws.
-- [ ] 2.5 **`Bus`**. `map(base, device)` takes ownership of a device and places it at `base`. Instruction fetch (always 4 bytes), data read, and data write each take a bus address and forward to the right device at the right offset. An access must fit entirely inside one device; anything else throws `MemoryFault` with the bus address. Mapping a device that overlaps another one is rejected. Example: with 1 MiB of memory at 0x80000000, address 0x80000010 reaches memory offset 0x10, 0x800FFFFC is the last valid word, and both 0x80100000 and 0x7FFFFFFC throw.
-- [ ] 2.6 **Loader**: copy a run of bytes onto the bus starting at an address. Example: loading the bytes 13 05 50 00 at 0x80000000 and then fetching at 0x80000000 returns 0x00500513, the first instruction of your Lab 0 program (`addi a0, zero, 5`). Loading files comes in Lab 8.
-- [ ] 2.7 **Hex dump**: return a `std::string` showing an address range, 16 bytes per line, address first. Example first line after loading the first four words of `first.S`: `80000000: 13 05 50 00 93 05 70 00 33 06 b5 00 b3 86 a5 40`.
+- [ ] 2.1 Abstract `Device` class: a size, plus reads and writes of 1, 2, and 4 bytes at an offset.
+- [ ] 2.2 `Memory`, derived from `Device`: allocate the byte storage that holds the program's instructions and data.
+- [ ] 2.3 Little-endian multi-byte reads and writes.
+- [ ] 2.4 Bounds checking that throws a custom exception carrying the address, the width, and the access type (fetch, read, or write).
+- [ ] 2.5 `Bus`: maps address ranges to devices, turns addresses into device offsets, rejects overlapping ranges, and offers instruction fetch as its own entry point next to data reads and writes.
+- [ ] 2.6 A loader that copies a run of bytes to an address (files come in Lab 8).
+- [ ] 2.7 A hex dump of an address range, for debugging.
 
 **Tests**
 - [ ] T2.1 Write a 32-bit value and read its bytes back one at a time: the least significant byte sits at the lowest address.
@@ -538,21 +473,16 @@ Every access has an address (or, inside a device, an offset), a width of 1, 2, o
 
 **Goal:** the 32 integer registers, the pc, and a way to compare and record CPU state.
 
-**Where this fits:** decode reads source registers from the `RegisterFile`, and write back updates it. Tests compare whole `ArchState`s. Every instruction that retires produces a `CommitRecord`, which is the unit of truth for tracing (Lab 9), for comparing your two CPUs (Phase 5), and for checking your RTL core (Extension E6).
-
 **Objectives**
-- [ ] 3.1 **`RegisterFile`**: 32 registers of type `Word`. Reading takes a `RegIndex` and returns a `Word`; writing takes a `RegIndex` and a `Word`. x0 always reads 0 and ignores writes. Example: after writing 5 to x0 and 12 to x10, x0 reads 0 and x10 reads 12.
-- [ ] 3.2 **ABI names**: a function that takes a `RegIndex` and returns its ABI name as a `std::string_view`. Examples: 10 gives `a0`, 2 gives `sp`, 8 gives `s0`.
-- [ ] 3.3 **`ArchState`**: the pc plus all 32 registers. Two states are equal only if the pc and every register match. Printing one gives a readable table, four registers per line, each with its number, ABI name, and hex value.
-- [ ] 3.4 **`CommitRecord`**: one retired instruction. Fields: its pc, its raw word, an optional register write (register number and value), and an optional memory write (address, width, and value). Records compare with `==`, because Phase 5 compares them. Examples:
-  - `sub a3, a1, a0` at 0x8000000C with a0 = 5 and a1 = 7: pc 0x8000000C, word 0x40A586B3, register write x13 = 2, no memory write.
-  - `sw a2, -4(sp)` with sp = 0x800FFFF0 and a2 = 12: no register write, and a 4-byte memory write of 12 to 0x800FFFEC.
+- [ ] 3.1 `RegisterFile` with 32 registers. x0 always reads 0 and ignores writes.
+- [ ] 3.2 ABI name lookup (x10 is `a0`) for printing.
+- [ ] 3.3 `ArchState` holding the pc and the registers, with equality comparison and a readable dump.
+- [ ] 3.4 `CommitRecord` describing one retired instruction: pc, raw bits, the register write (if any), and the memory write (if any). You will use it for tracing, for comparing your two CPU models, and later for checking your RTL core.
 
 **Tests**
 - [ ] T3.1 Writes to x0 are ignored; x1 through x31 round-trip.
 - [ ] T3.2 ABI names: x0 `zero`, x1 `ra`, x2 `sp`, x8 `s0`, x10 `a0`, x31 `t6`.
 - [ ] T3.3 States that differ in one register compare unequal; identical states compare equal.
-- [ ] T3.4 Two `CommitRecord`s that differ only in the width of their memory write compare unequal.
 
 **Done when:** tests pass and a state dump prints all 32 registers as a readable table.
 
@@ -566,29 +496,15 @@ Every access has an address (or, inside a device, an offset), a width of 1, 2, o
 
 **Goal:** pull every field out of a raw instruction and build all five immediate types correctly.
 
-**Where this fits:** these are the decoder's tools. Lab 5's `decode()` calls them on every fetched word, and the instruction objects keep the results. Every function here takes the whole 32-bit instruction as a `Word`. Register fields come back as `RegIndex`; everything else comes back as a `Word`.
-
 **Objectives**
 - [ ] 4.1 Read the RV32I chapter and the instruction listing table in the unprivileged spec. Draw the six formats (R, I, S, B, U, J) by hand.
-- [ ] 4.2 **`enum class Opcode`** with 11 enumerators (LUI, AUIPC, JAL, JALR, BRANCH, LOAD, STORE, OP-IMM, OP, MISC-MEM, SYSTEM), each set to its 7-bit opcode value from the spec.
-- [ ] 4.3 **Field extractors** `opcode`, `rd`, `rs1`, `rs2`, `funct3`, `funct7`. Example: for 0x00B50633 (`add a2, a0, a1`) they return 0x33, 12, 10, 11, 0, and 0. For 0x40A586B3 (`sub a3, a1, a0`), `funct7` returns 0x20.
-- [ ] 4.4 **Immediate builders** `imm_i`, `imm_s`, `imm_b`, `imm_u`, `imm_j`. Each returns the immediate already sign-extended to 32 bits. `imm_u` returns the value in its final position, with the low 12 bits zero. `imm_b` and `imm_j` return the byte offset, so bit 0 is always 0. See the examples below.
-- [ ] 4.5 **Test vectors**: one assembly file, `tests/programs/lab4/vectors.S`, containing every RV32I instruction with chosen immediates (zero, positive, negative, and both range limits). Assemble it, run `objdump -d -M no-aliases`, and turn the output into a table of word, mnemonic, fields, and immediate in your test file.
-
-**Immediate examples** (all from the cross assembler)
-
-| Instruction | Word | Builder | Returns |
-|---|---|---|---|
-| `addi a0, zero, -1` | 0xFFF00513 | `imm_i` | 0xFFFFFFFF (-1) |
-| `sw a2, -4(sp)` | 0xFEC12E23 | `imm_s` | 0xFFFFFFFC (-4) |
-| `beq a0, a1, +8` | 0x00B50463 | `imm_b` | 8 |
-| `bne a0, zero, -8` | 0xFE051CE3 | `imm_b` | 0xFFFFFFF8 (-8) |
-| `lui a4, 0x12345` | 0x12345737 | `imm_u` | 0x12345000 |
-| `jal ra, +16` | 0x010000EF | `imm_j` | 16 |
-| `jal zero, -16` | 0xFF1FF06F | `imm_j` | 0xFFFFFFF0 (-16) |
+- [ ] 4.2 An `enum class` for the major opcodes.
+- [ ] 4.3 Field extractors: opcode, rd, rs1, rs2, funct3, funct7.
+- [ ] 4.4 Immediate builders for the I, S, B, U, and J formats.
+- [ ] 4.5 Generate test vectors with the cross assembler: one assembly file containing every RV32I instruction with chosen immediates (zero, positive, negative, and both range limits). Take the hex words from the disassembly.
 
 **Tests**
-- [ ] T4.1 Every immediate type: zero, small positive, small negative, largest positive, most negative. Start with the table above.
+- [ ] T4.1 Every immediate type: zero, small positive, small negative, largest positive, most negative.
 - [ ] T4.2 B and J immediates always have bit 0 clear; include backward branches and jumps.
 - [ ] T4.3 Every vector from 4.5 yields the fields and immediates the disassembly shows.
 
@@ -600,19 +516,12 @@ Every access has an address (or, inside a device, an offset), a width of 1, 2, o
 
 **Goal:** turn a raw instruction into an object that knows what it is and what it does in each stage.
 
-**Where this fits:** the decode stage hands a fetched `Word` and its pc to `decode()` and gets back an object. From then on the CPU never looks at bits again: it asks the object which registers it reads and writes, and (from Lab 6) tells it to execute.
-
 **Objectives**
-- [ ] 5.1 **Abstract `Instruction`**. Built from a pc (`Addr`) and a raw `Word`; it stores both, plus the decoded register numbers and immediate. It declares:
-  - stage behavior: `execute()`, `access_memory(Bus&)`, and `write_back(RegisterFile&)`, whose bodies come in Lab 6
-  - `disassemble()`, returning a `std::string`
-  - queries that return `bool`: `reads_rs1()`, `reads_rs2()`, `writes_rd()`, `is_load()`, `is_control_flow()`, `is_system()`
-
-  Examples: `add a2, a0, a1` reads rs1 and rs2 and writes rd. `sw a2, -4(sp)` reads rs1 and rs2 and writes nothing. `lui a4, 0x12345` reads nothing and writes rd.
+- [ ] 5.1 Abstract `Instruction` base class. It stores the pc, the raw bits, and the decoded fields. It declares the per-stage behavior (execute, memory access, write back), a disassembly method, and the queries the CPU will need later: which registers it reads, whether it writes rd, and whether it is a load, a control-flow instruction, or a system instruction.
 - [ ] 5.2 Derived classes by category: `LoadInstruction`, `StoreInstruction`, `BranchInstruction`, `RegisterOpInstruction` (R-type), `ImmediateOpInstruction` (I-type arithmetic and shifts), `LuiInstruction`, `AuipcInstruction`, `JalInstruction`, `JalrInstruction`, `SystemInstruction` (ECALL, EBREAK), `FenceInstruction`, and `IllegalInstruction`.
 - [ ] 5.3 Use class templates for the load family (width and signedness), the store family (width), and the branch family (comparison and signedness).
-- [ ] 5.4 **`decode(word, pc)`**. Takes any `Word` and its `Addr`, and returns a `std::unique_ptr<Instruction>`. It never returns null and never throws: anything that isn't a valid RV32I instruction becomes an `IllegalInstruction`. Examples: `decode(0x00B50633, 0x80000008)` gives a `RegisterOpInstruction`, `decode(0x0FF0000F, pc)` gives a `FenceInstruction`, and `decode(0x00000000, pc)` gives an `IllegalInstruction`.
-- [ ] 5.5 **Disassembly** in the same form as `objdump -d -M no-aliases`: the mnemonic, then operands separated by commas, with ABI register names, loads and stores written as `offset(base)`, and branch and jump targets as absolute addresses. Examples: `add a2,a0,a1`, `addi a0,zero,-1`, `sw a2,-4(sp)`, `lui a4,0x12345`, `beq a0,a1,8000001c` (the beq at 0x80000014), `jal ra,80000024` (a jal at 0x80000014), and `ecall`.
+- [ ] 5.4 `Decoder`, a factory that returns an owning pointer to the right derived object for any 32-bit value, including illegal ones.
+- [ ] 5.5 Disassembly: every instruction prints itself with its mnemonic and operands, using ABI register names.
 - [ ] 5.6 Leave the stage behavior bodies empty for now; Lab 6 fills them in.
 
 **Tests**
@@ -633,32 +542,14 @@ Every access has an address (or, inside a device, an offset), a width of 1, 2, o
 
 **Goal:** every instruction computes the right result, branch decision, target, and memory effect.
 
-**Where this fits:** the CPU's execute, memory, and write back stages (Lab 7) are just calls to these methods, and the pipeline (Phase 5) calls the same ones. For one instruction the order is: the CPU gives it its operand values, then calls `execute()`, `access_memory()`, and `write_back()`. Afterwards `result()` holds the value for rd and `next_pc()` holds the address of the next instruction. (This is option A from hint 6.1; adjust the names if you pick option B.)
-
 **Objectives**
 - [ ] 6.1 Decide where operand values and results live (inside the instruction object, or in separate stage structs) and record it in `DESIGN.md`.
-- [ ] 6.2 **ALU**: `alu(op, a, b)` takes an `AluOp` (ADD, SUB, SLL, SLT, SLTU, XOR, SRL, SRA, OR, AND) and two `Word`s, and returns a `Word`. The I-type instructions reuse it, with the immediate as `b`. See the examples below.
-- [ ] 6.3 **Arithmetic, logic, shifts, and comparisons**: `execute()` computes `result()`. Examples: `addi a0, zero, -1` gives 0xFFFFFFFF. `sltiu a0, a1, -1` with a1 = 5 gives 1, because the immediate becomes 0xFFFFFFFF and the comparison is unsigned.
-- [ ] 6.4 **Control flow and upper immediates**: `next_pc()` is pc + 4 unless the instruction transfers control. Examples:
-  - `beq a0, a1, +8` at 0x80000014: 0x80000018 when a0 and a1 differ, 0x8000001C when they're equal.
-  - `jal ra, +16` at 0x80000014: `result()` is 0x80000018 (the link) and `next_pc()` is 0x80000024.
-  - `jalr zero, 0(ra)` with ra = 0x80000101: `next_pc()` is 0x80000100 (bit 0 cleared).
-  - `auipc a0, 0x1` at 0x80000000 gives 0x80001000; `lui a4, 0x12345` gives 0x12345000.
-- [ ] 6.5 **Loads and stores**: `access_memory(bus)` does the access, and loads put the extended value in `result()`. Examples: if the byte at address A is 0x80, LB gives 0xFFFFFF80 and LBU gives 0x00000080. If the halfword there is 0x8000, LH gives 0xFFFF8000 and LHU gives 0x00008000. SH of 0x12345678 to A writes 78 56 to A and A + 1 and leaves A + 2 alone.
-- [ ] 6.6 **Write back**: `write_back(regs)` writes `result()` to rd when `writes_rd()` is true. Nothing ever changes x0.
-- [ ] 6.7 **Misaligned targets**: a taken transfer to an address that isn't a multiple of 4 is recorded as a fault on the instruction. Example: `jalr zero, 2(ra)` with ra = 0x80000000 targets 0x80000002 and faults. A not-taken branch never faults.
-
-**ALU examples**
-
-| Op | a | b | Result |
-|---|---|---|---|
-| ADD | 0x7FFFFFFF | 1 | 0x80000000 |
-| SUB | 0 | 1 | 0xFFFFFFFF |
-| SLT | 0xFFFFFFFF | 1 | 1 (signed: -1 < 1) |
-| SLTU | 0xFFFFFFFF | 1 | 0 (unsigned: 0xFFFFFFFF > 1) |
-| SRA | 0x80000000 | 4 | 0xF8000000 |
-| SRL | 0x80000000 | 4 | 0x08000000 |
-| SLL | 1 | 33 | 2 (only the low 5 bits of b count) |
+- [ ] 6.2 An ALU for the ten R-type operations, reused by the I-type instructions.
+- [ ] 6.3 Execute for arithmetic, logic, shifts, and comparisons.
+- [ ] 6.4 Branch decisions and targets, JAL and JALR targets and link values, LUI and AUIPC results.
+- [ ] 6.5 Memory access for loads (with sign or zero extension) and stores.
+- [ ] 6.6 Write back, never to x0.
+- [ ] 6.7 Detect a taken control transfer to an address that is not a multiple of 4, and represent it as a fault.
 
 **Tests** (parameterized, one row per case)
 - [ ] T6.1 ADD and SUB wrap around at 0x7FFFFFFF and 0x80000000.
@@ -685,18 +576,16 @@ Every access has an address (or, inside a device, an offset), a width of 1, 2, o
 
 **Goal:** a CPU that runs each instruction through all five stages before starting the next.
 
-**Where this fits:** this is the first time all the pieces run together, and at the end your Lab 0 program runs on your own CPU. This CPU is also the reference that the pipeline is checked against in Phase 5.
-
 **Objectives**
-- [ ] 7.1 **Stage structs**: IF/ID holds a valid bit, the pc, and the fetched `Word`. ID/EX, EX/MEM, and MEM/WB hold a valid bit and the instruction object (under option A it carries its own values). They become your pipeline registers in Phase 5.
-- [ ] 7.2 **`SingleCycleCpu`**: its constructor takes a `Bus&` (the CPU uses the bus but doesn't own it). It owns the `RegisterFile` and the pc. `reset(entry, sp)` sets the pc to `entry`, sp to `sp`, and every other register to 0.
-- [ ] 7.3 One method per stage: fetch, decode, execute, memory access, write back. Each takes the incoming stage struct and returns the outgoing one.
-- [ ] 7.4 **`step()`** runs one instruction through all five stages. If the instruction retires, `step()` returns its `CommitRecord`. If it stops the CPU instead (an exit ECALL, EBREAK, a fault, or an illegal instruction), no record comes back, and `stop_reason()` says why. Following the spec, ECALL and EBREAK don't count as retired.
-- [ ] 7.5 **`run(limit)`** calls `step()` until the CPU stops or `limit` instructions have retired, and returns the `StopReason`: exited (with its code), illegal instruction, memory fault, misaligned target, breakpoint (EBREAK), unknown system call, or instruction limit. Each reason carries the pc and raw word of the instruction involved. Example: `first.S` stops with "exited, code 12" after 9 retired instructions (its ECALL is the tenth and doesn't retire).
+- [ ] 7.1 Define the four inter-stage structs (IF/ID, ID/EX, EX/MEM, MEM/WB) now, even though nothing is pipelined yet. They become your pipeline registers in Phase 5.
+- [ ] 7.2 `SingleCycleCpu` owns the register file and pc, and uses a bus it does not own.
+- [ ] 7.3 One method per stage: fetch, decode, execute, memory access, write back.
+- [ ] 7.4 `step()` runs the five stages for one instruction and returns its `CommitRecord`.
+- [ ] 7.5 `run(limit)` loops until a stop reason: exit (with code), illegal instruction, memory fault, misaligned target, EBREAK, or instruction limit. Every stop reports the pc, the raw instruction, and the reason.
 - [ ] 7.6 Faults are precise: a faulting instruction changes no register or memory, and the pc still points at it.
-- [ ] 7.7 **Exit**: ECALL with a7 = 93 stops with "exited" and the code in a0. Any other a7 value stops with "unknown system call" and that value.
-- [ ] 7.8 **Reset values**: with 1 MiB of memory at 0x80000000, reset with entry 0x80000000 and sp 0x800FFFF0 (16 bytes below the top, 16-byte aligned).
-- [ ] 7.9 **Counters**: retired instructions and host time, so `run()` can report instructions per second.
+- [ ] 7.7 ECALL with a7 = 93 exits with the code in a0. Any other a7 value stops with a clear message.
+- [ ] 7.8 Reset state: pc at the entry address, sp just below the top of memory, all other registers zero.
+- [ ] 7.9 Counters: instructions executed and host time.
 - [ ] 7.10 Optional: a multi-cycle variant that advances one stage per call, so every instruction takes five cycles. It gives you a CPI baseline of 5 for Phase 5.
 
 **Tests** (small hand-assembled programs written into memory by the test)
@@ -706,7 +595,7 @@ Every access has an address (or, inside a device, an offset), a width of 1, 2, o
 - [ ] T7.4 Forward and backward branches.
 - [ ] T7.5 An illegal instruction and a fetch outside memory stop with the right reason and pc, and leave state unchanged.
 - [ ] T7.6 The instruction limit stops an infinite loop.
-- [ ] T7.7 The Lab 0 program (`tests/programs/lab0/first.S`) exits with code 12 after 9 retired instructions.
+- [ ] T7.7 The Lab 0 program (`tests/programs/lab0/first.S`) exits with code 12.
 
 **Done when:** all tests pass.
 
@@ -716,33 +605,20 @@ Every access has an address (or, inside a device, an offset), a width of 1, 2, o
 
 **Goal:** compile C and assembly with the cross toolchain and run the results.
 
-**Where this fits:** until now, test programs were words pasted into unit tests. From here on the simulator runs files built by the cross compiler, and every later lab uses this program suite.
-
-**Files** (all new, under `tests/programs/`):
-
-```
-tests/programs/
-├── Makefile
-├── link.ld
-├── runtime/        crt0.S, runtime.c, runtime.h
-├── lab0/           first.S
-└── suite/          one .c file per test program
-```
-
 **Objectives**
-- [ ] 8.1 **Startup** (`runtime/crt0.S`): `_start` in section `.text.init` sets up the stack if needed, calls `main`, then makes the exit ECALL (a7 = 93), so main's return value becomes the exit code.
-- [ ] 8.2 **Linker script** (`link.ld`): one RAM region at 0x80000000, 1 MiB long, with `.text.init` first. Check: `readelf -l` on any program shows its first LOAD segment starting at 0x80000000, as in Step 0.9. The link address must equal the load address.
-- [ ] 8.3 **Build** (`Makefile`): `make` builds every program in `suite/` at `-O0` and at `-O2`, into `build/<name>-O0.elf` and `build/<name>-O2.elf`, with a `.dump` (from `objdump -d -M no-aliases`) next to each for debugging. Flags: `-march=rv32i -mabi=ilp32`, freestanding, no standard library. The tool prefix lives in one variable, for example `CROSS ?= riscv64-unknown-elf-`.
-- [ ] 8.4 **Runtime** (`runtime/runtime.c`): the pieces the compiler calls on its own: `memset`, `memcpy`, `memmove`, and `memcmp`, plus multiply and divide helpers unless you link `-lgcc`.
-- [ ] 8.5 **Flat binaries** first: `load_binary(bus, path, base)` copies a file made with `objcopy -O binary` to `base` and returns `base` as the entry point.
-- [ ] 8.6 **ELF loader**: `load_elf(bus, path)` validates the header (magic, 32-bit, little-endian, RISC-V), copies each loadable segment, zero-fills the rest of each segment's memory size, and returns the entry point. Invalid files throw a `LoadError` with a readable message. Example: `first.elf` gives entry 0x80000000 and one 0x28-byte segment copied to 0x80000000.
-- [ ] 8.7 **Console**: `ConsoleDevice` takes a `std::ostream&` and is mapped at 0x10000000. A 1-byte write of 0x41 prints `A`. Add `print_char`, `print_str`, and `print_hex` to your C runtime.
-- [ ] 8.8 **Command line**: `rvsim <program.elf> [--max-instructions N] [--trace] [--model single]`. The process exit code equals the guest's exit code. Any other stop prints the reason to stderr and exits with a code your programs never return, such as 255.
-- [ ] 8.9 **Program suite** in `suite/`, each self-checking: `main` returns 0 on success and a distinct nonzero code for each failed check. Programs: Fibonacci (loop and recursive), bubble sort, string functions, GCD, shift-and-add multiply, xorshift random numbers, Collatz, and a "hello" that prints.
-- [ ] 8.10 Build and run every program at `-O0` and `-O2`.
+- [ ] 8.1 A startup file in assembly: `_start` sets up the stack if needed, calls `main`, and exits through ECALL with main's return value.
+- [ ] 8.2 A linker script that places code and data in one RAM region starting at your memory base. The link address must equal the load address.
+- [ ] 8.3 A build for test programs (a Makefile, or a separate CMake project with a toolchain file) using `-march=rv32i -mabi=ilp32`, freestanding, with no standard library.
+- [ ] 8.4 The small runtime pieces the compiler calls on its own: `memset` and `memcpy`, plus multiply and divide helpers unless you link libgcc.
+- [ ] 8.5 Load flat binaries (made with objcopy) first.
+- [ ] 8.6 An ELF32 loader: validate the header (magic, 32-bit, little-endian, RISC-V), load each loadable segment, zero the rest of each segment's memory size, and start at the entry point.
+- [ ] 8.7 A console device on the bus: writing a byte to its address prints a character. Add a tiny print routine to your C runtime.
+- [ ] 8.8 Simulator command line: program path, instruction limit, trace switch, and a model switch (only one model exists for now). The process exit code equals the guest exit code.
+- [ ] 8.9 A suite of self-checking programs where `main` returns 0 on success and a distinct nonzero code per failed check: Fibonacci (loop and recursive), bubble sort, string functions, GCD, shift-and-add multiply, xorshift random numbers, Collatz, and a "hello" that prints.
+- [ ] 8.10 Build every program at `-O0` and `-O2`.
 
 **Tests**
-- [ ] T8.1 ELF loader unit tests on a small ELF checked into the repository (`tests/data/`): entry point, segment bytes, zeroed bss.
+- [ ] T8.1 ELF loader unit tests on a small ELF checked into the repository: entry point, segment bytes, zeroed bss.
 - [ ] T8.2 The loader rejects bad magic, 64-bit files, big-endian files, the wrong machine, and segments outside memory.
 - [ ] T8.3 One CTest entry per program per optimization level, passing when the simulator exits with 0.
 
@@ -754,14 +630,12 @@ tests/programs/
 
 **Goal:** see exactly what the CPU did, and prove it against the official ISA tests.
 
-**Where this fits:** from here on, every bug hunt starts with a trace or a commit-log diff, and the official tests guard every later change.
-
 **Objectives**
-- [ ] 9.1 **Trace**: one line per retired instruction with a count, pc, word, disassembly, and what it wrote. Example: `     3  80000008  00b50633  add a2,a0,a1        x12 <= 0x0000000c`.
-- [ ] 9.2 `--trace` prints the trace to the terminal and `--trace-file <path>` writes it to a file. Off by default, and nearly free when off.
-- [ ] 9.3 **Commit log** (`--commit-log <path>`): only pc, word, and writes, one line per retired instruction, so two runs can be compared with `diff`. Examples: `80000008 00b50633 x12=0000000c` for a register write, and `80000010 fec12e23 mem[800fffec]=0000000c/4` for a 4-byte store.
-- [ ] 9.4 **riscv-tests (rv32ui)** built with your own minimal environment in `tests/riscv-tests-env/` (your `riscv_test.h` and `link.ld`), so they run without CSRs or traps. Each test exits with 0 on pass, or with the number of the failing case.
-- [ ] 9.5 Register every applicable rv32ui test with CTest, named `rv32ui-add`, `rv32ui-beq`, and so on.
+- [ ] 9.1 Instruction trace: one line per committed instruction with a count, pc, raw bits, disassembly, register write, and memory write.
+- [ ] 9.2 The trace goes to any output stream (terminal or file), is off by default, and costs almost nothing when off.
+- [ ] 9.3 A stable, machine-readable commit log (no counts, no disassembly) so two runs can be compared with `diff`.
+- [ ] 9.4 Build riscv-tests (rv32ui) with your own minimal test environment so they run without CSRs or traps.
+- [ ] 9.5 Register every applicable rv32ui test with CTest.
 - [ ] 9.6 Optional: compare your commit log with Spike's for a program both can run.
 
 **Tests**
@@ -780,26 +654,14 @@ tests/programs/
 
 **Goal:** a cycle-level 5-stage pipeline with up to five instructions in flight. No hazard handling yet.
 
-**Where this fits:** the pipeline reuses the bus, register file, decoder, and instruction objects unchanged; only the control around them is new. That is why the single-cycle CPU can serve as its reference. `first.S` has data hazards (its `add` reads a0 and a1 right after they're written) and a branch, so it runs on the pipeline after Lab 12; make a NOP-padded copy for this lab.
-
 **Objectives**
-- [ ] 10.1 **`CpuModel`** interface with `reset(entry, sp)`, `step()`, `run(limit)` returning the `StopReason`, `state()` returning the `ArchState`, `stats()`, and `set_commit_callback()`. `step()` means one instruction on the single-cycle CPU and one clock cycle on the pipeline; `run()` works the same on both. Both CPUs implement it, so the simulator (`--model single` or `--model pipeline`) and the tests can use either.
-- [ ] 10.2 **`PipelinedCpu`** with the four stage structs from 7.1 as its pipeline registers. A register whose valid bit is off holds a bubble.
-- [ ] 10.3 **`tick()`** advances one clock cycle: compute every stage's output from the current register contents, then update all registers together.
+- [ ] 10.1 A common `CpuModel` interface (run, step, state, stats, commit callback) implemented by both CPUs, so the simulator and the tests can use either one.
+- [ ] 10.2 `PipelinedCpu` with the four pipeline registers from 7.1, each with a valid bit.
+- [ ] 10.3 `tick()` advances one clock cycle: compute every stage's output from the current register contents, then update all registers together.
 - [ ] 10.4 Commit happens only in WB. Exits, faults, and illegal instructions take effect only when they commit.
 - [ ] 10.5 Reuse the Lab 6 instruction behavior. The pipeline only moves instructions between stages and calls their methods.
-- [ ] 10.6 **Pipeline diagram** (`--pipeview`): one row per cycle with the pc each stage holds, or `.` for a bubble. The first five cycles of a program at 0x80000000:
-
-```
-cycle  IF        ID        EX        MEM       WB
-    1  80000000  .         .         .         .
-    2  80000004  80000000  .         .         .
-    3  80000008  80000004  80000000  .         .
-    4  8000000c  80000008  80000004  80000000  .
-    5  80000010  8000000c  80000008  80000004  80000000
-```
-
-- [ ] 10.7 **Stats**: cycles, retired instructions, and CPI (cycles divided by retired instructions).
+- [ ] 10.6 Pipeline diagram output: one row per cycle showing what occupies each stage.
+- [ ] 10.7 Stats: cycles, committed instructions, CPI.
 - [ ] 10.8 Decide how the single memory serves IF and MEM in the same cycle, and record the decision.
 - [ ] 10.9 Write hazard-free test programs: no branches or jumps, and enough NOPs between each register write and any later read of that register.
 
@@ -816,13 +678,11 @@ cycle  IF        ID        EX        MEM       WB
 
 **Goal:** correct results without NOP padding.
 
-**Where this fits:** hazard handling comes down to two small decisions made every cycle: where each operand comes from, and whether to stall. Write each as a pure function that takes plain values and returns a decision; the pipeline just calls them.
-
 **Objectives**
 - [ ] 11.1 Write back updates the register file before decode reads it in the same cycle.
-- [ ] 11.2 **Forwarding**: a function that takes the register an EX instruction reads, plus what EX/MEM and MEM/WB hold (valid, writes rd, rd, is load), and returns where the value comes from: the register file, EX/MEM, or MEM/WB. Newest value first, never for x0. Examples: EX reads x5 while both EX/MEM and MEM/WB write x5: take EX/MEM. EX reads x0 while EX/MEM writes x0: take the register file.
+- [ ] 11.2 Forwarding into EX from EX/MEM and from MEM/WB, newest value first, never for x0.
 - [ ] 11.3 Forwarded values reach every consumer: ALU operands, branch comparisons, the JALR base, and store data.
-- [ ] 11.4 **Load-use stall**: a function that takes what ID/EX holds and the instruction in ID, and returns whether to stall. On a stall, hold the pc and IF/ID for one cycle and send a bubble into ID/EX. Examples: `lw a0, 0(sp)` in ID/EX with `add a1, a0, a0` in ID: stall. With `lui a0, 1` in ID instead: no stall, because LUI reads no registers.
+- [ ] 11.4 Load-use detection: hold the pc and IF/ID for one cycle and send a bubble into ID/EX.
 - [ ] 11.5 A register counts as used only if the instruction actually reads it.
 - [ ] 11.6 Stats: stalls, and forwards by source.
 
@@ -830,7 +690,7 @@ cycle  IF        ID        EX        MEM       WB
 - [ ] T11.1 A register read 1, 2, and 3 instructions after it is written.
 - [ ] T11.2 Two consecutive writes to the same register, then a read: the newer value wins.
 - [ ] T11.3 A write to x0 followed by a read of x0 reads 0.
-- [ ] T11.4 A load followed immediately by a use: correct value and exactly one extra cycle, so a program of N instructions with one such pair takes N + 5 cycles.
+- [ ] T11.4 A load followed immediately by a use: correct value and exactly one extra cycle.
 - [ ] T11.5 A load followed by a use two instructions later: correct value and no stall.
 - [ ] T11.6 A store whose base and data registers were just written, and a load whose base was just written.
 - [ ] T11.7 Unit tests for the forwarding and stall decision functions on their own.
@@ -844,10 +704,8 @@ cycle  IF        ID        EX        MEM       WB
 
 **Goal:** branches and jumps work in the pipeline.
 
-**Where this fits:** with control hazards handled, every program runs on the pipeline. From here on the differential check (both CPUs, identical commit logs) guards every change.
-
 **Objectives**
-- [ ] 12.1 **Resolve in EX**: each instruction compares its `next_pc()` with the pc that was fetched after it (pc + 4, since you predict not taken). A mismatch produces a redirect to `next_pc()`.
+- [ ] 12.1 Resolve branches and jumps in EX. Predict not taken (fetch pc + 4).
 - [ ] 12.2 On a redirect, discard the two instructions fetched after the branch and continue at the correct pc.
 - [ ] 12.3 Define and document priorities for when a redirect, a stall, and the normal pc update meet in one cycle.
 - [ ] 12.4 Wrong-path safety: a discarded instruction never writes a register or memory, never stops the simulation, and never reports an error. Fetch faults travel through the pipeline as data.
@@ -863,7 +721,6 @@ cycle  IF        ID        EX        MEM       WB
 - [ ] T12.5 A branch and a JALR whose operands were just written (forwarding into control flow).
 - [ ] T12.6 A JAL whose link register is read by the first instruction at its target.
 - [ ] T12.7 Differential: every program and every rv32ui test produces an identical commit log on both models.
-- [ ] T12.8 `first.S` exits with code 12 in 14 cycles: 10 instructions plus 4, with no stalls (all its hazards are covered by forwarding) and no redirect (its branch is not taken).
 
 **Done when:** T12.7 passes. Tag v0.2.
 
@@ -877,19 +734,15 @@ cycle  IF        ID        EX        MEM       WB
 
 **Goal:** predict in IF, check in EX, recover on a mispredict.
 
-**Where this fits:** IF now guesses the next pc instead of always using pc + 4, and EX checks the guess with the Lab 12 redirect machinery. Predictors are interchangeable objects chosen at startup.
-
 **Objectives**
-- [ ] 13.1 **`BranchPredictor`** interface: `predict(pc)` returns `true` for taken, `update(pc, taken)` trains on the real outcome, and `name()` returns a label for the stats.
-- [ ] 13.2 **Target prediction** in IF: a direct-mapped `Btb` whose `lookup(pc)` returns an optional target and whose `update(pc, target)` records one, or pre-decoding direct branches in IF. Record which one you chose.
+- [ ] 13.1 Abstract `BranchPredictor` interface: predict a direction for a pc, and train on the actual outcome.
+- [ ] 13.2 Target prediction in IF: a direct-mapped branch target buffer (BTB), or pre-decoding direct branches in IF. Record which one you chose.
 - [ ] 13.3 Carry each instruction's predicted next pc through the pipeline with it.
 - [ ] 13.4 In EX, a mispredict is any difference between the actual next pc and the predicted next pc.
 - [ ] 13.5 Recovery reuses the Lab 12 redirect path.
 - [ ] 13.6 Static predictors: always not taken, always taken, and backward taken, forward not taken (BTFN).
-- [ ] 13.7 **Registry**: `make_predictor(name)` returns a `std::unique_ptr<BranchPredictor>` for `nt`, `t`, and `btfn` (and `bimodal` after Lab 14), selected with `--predictor <name>`. An unknown name lists the valid ones.
-- [ ] 13.8 **Stats**: conditional branches, mispredictions, accuracy (correct predictions divided by conditional branches), MPKI (mispredictions per 1000 retired instructions), and BTB hit rate.
-
-**Example:** a loop branch that is taken 9 times and then not taken once. Always-not-taken mispredicts 9 times. Always-taken with a BTB mispredicts twice: once on the first iteration, while the BTB is still empty, and once at the exit.
+- [ ] 13.7 Select the predictor by name on the command line through a small registry.
+- [ ] 13.8 Stats: conditional branches, mispredictions, accuracy, MPKI, BTB hit rate.
 
 **Tests**
 - [ ] T13.1 Always-not-taken reproduces the Lab 12 cycle counts exactly.
@@ -904,14 +757,12 @@ cycle  IF        ID        EX        MEM       WB
 
 **Goal:** the classic table of 2-bit counters, measured on your programs.
 
-**Where this fits:** bimodal is the first predictor that learns. It plugs into the Lab 13 framework as one more name in the registry.
-
 **Objectives**
-- [ ] 14.1 **`SaturatingCounter`** class template with the bit width as a template parameter. It holds a value from 0 to 2^Bits - 1; `increment()` and `decrement()` stop at the ends; `predict_taken()` is true in the upper half of the range. Example with 2 bits: values 0 to 3, taken at 2 and 3. From 1, one taken outcome moves it to 2 and flips the prediction.
-- [ ] 14.2 **`BimodalPredictor`**: its constructor takes the table size (a power of two) and the initial counter value. The index is the pc shifted right by 2, masked to the table size. Example with 16 entries: pc 0x80000040 uses entry 0, 0x80000044 uses entry 1, and 0x80000080 uses entry 0 again (the two alias).
-- [ ] 14.3 Make the counters' initial state a command-line option.
+- [ ] 14.1 `SaturatingCounter` class template with the bit width as a template parameter.
+- [ ] 14.2 `BimodalPredictor` with a power-of-two table size chosen at construction, indexed from the pc.
+- [ ] 14.3 Make the counters' initial state configurable.
 - [ ] 14.4 Train on conditional branches only, in EX.
-- [ ] 14.5 **Sweep** table sizes (for example 4 to 4096 entries) and predictors over the program suite, writing one CSV row per run with the columns program, predictor, entries, instructions, cycles, branches, mispredictions, accuracy, mpki, and cpi.
+- [ ] 14.5 Sweep table sizes (for example 4 to 4096 entries) and predictors over the program suite. Write accuracy, MPKI, and CPI to a CSV.
 - [ ] 14.6 Plot the results and write a short results section in the README.
 
 **Tests**
@@ -934,18 +785,16 @@ cycle  IF        ID        EX        MEM       WB
 
 **Goal:** a configurable cache hierarchy that counts hits and misses without changing any data.
 
-**Where this fits:** a `MemoryHierarchy` object slots in between the CPU and the bus. In this lab it only counts hits and misses; Lab 16 makes misses cost cycles.
-
 **Objectives**
-- [ ] 15.1 **`Cache`**: built from a name, a total size, a block size, and a number of ways (all powers of two). `access(addr, is_write)` returns whether it hit and updates the cache state. Example: 4 KiB with 16-byte blocks, direct-mapped, has 256 sets, so an address splits into a 4-bit offset, an 8-bit index, and a 20-bit tag. Address 0x80001234 splits into tag 0x80001, index 0x23, and offset 0x4.
+- [ ] 15.1 `Cache` with a size, block size, and associativity (all powers of two) that splits addresses into tag, index, and offset.
 - [ ] 15.2 A replacement policy interface with LRU, plus FIFO or random for comparison.
 - [ ] 15.3 Hit, miss, and eviction stats for reads and writes.
-- [ ] 15.4 **`MemoryHierarchy`**: the same fetch, read, and write calls as the `Bus`. Fetches go through an L1 instruction cache, loads and stores through an L1 data cache, misses in either go to a shared L2, and the data itself always comes from the bus. The CPU now talks to this instead of to the bus.
+- [ ] 15.4 A memory hierarchy between the CPU and the bus: fetches go through an L1 instruction cache, loads and stores through an L1 data cache, and both fall back to a shared L2.
 - [ ] 15.5 Caches track metadata only. Data always comes from memory, so a cache bug can never corrupt results. Device addresses (the console) bypass the caches.
-- [ ] 15.6 **Options**: `--l1i`, `--l1d`, and `--l2`, each written as `size:block:ways` (for example `--l1d 4096:16:2`). Every run prints its effective configuration.
+- [ ] 15.6 Cache geometry comes from command-line options, and every run prints its effective configuration.
 
 **Tests**
-- [ ] T15.1 Tag, index, and offset for several geometries, starting with the example in 15.1.
+- [ ] T15.1 Tag, index, and offset for several geometries.
 - [ ] T15.2 In a direct-mapped cache, two alternating addresses that share an index always miss.
 - [ ] T15.3 A 2-way cache removes that conflict.
 - [ ] T15.4 A known access sequence evicts the blocks LRU says it should.
@@ -959,10 +808,8 @@ cycle  IF        ID        EX        MEM       WB
 
 **Goal:** cache misses cost cycles in the pipeline.
 
-**Where this fits:** the memory hierarchy now reports how long each access took, and the pipeline stage that made the access waits that long.
-
 **Objectives**
-- [ ] 16.1 **Latency**: every access returns the extra cycles it cost: 0 on an L1 hit, the L2 latency when L1 misses and L2 hits, and the L2 latency plus the memory latency when both miss. Example with an L2 latency of 10 and a memory latency of 100: 0, 10, or 110.
+- [ ] 16.1 Give each cache level and main memory a latency in cycles.
 - [ ] 16.2 IF waits on an instruction cache miss. MEM waits on a data cache miss and holds every stage behind it.
 - [ ] 16.3 Decide what wrong-path fetches do to the caches and to stalls, and record it.
 - [ ] 16.4 Stats: stall cycles by cause (load-use, fetch miss, data miss), average memory access time, and CPI.

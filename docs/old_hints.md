@@ -26,15 +26,10 @@ Lab 0 is a step-by-step walkthrough with code in `labs.md`, so it has no hints. 
 
 ## Lab 1
 
-- **1.1** `std::uint32_t` for `Word` and `Addr`, and `std::int32_t` for `SWord`, from `<cstdint>`. For `RegIndex`, `std::uint8_t` is compact but needs a `static_cast` whenever you store a `Word` in it (the conversion warnings will insist); plain `unsigned` avoids the casts. Aliases don't stop you from mixing `Word` and `Addr`, since the compiler sees the same type, but they make every signature say what a number means. See the signed and unsigned rule under General.
-- **1.2** Two steps: shift the value right by `lo` so the field starts at bit 0, then clear everything above the field with a mask of `hi - lo + 1` ones.
-- **1.2** **Gotcha:** building that mask by shifting 1 left by the field width is undefined when the width is 32. Handle the full-width case separately, or build the mask in a 64-bit type.
-- **1.3** `bit` is a one-bit `bits`: extract the field from `n` to `n` and compare it with 1.
-- **1.4** First keep only the low `width` bits (1.2 does that), then extend. Two common ways to extend. One: shift left so the field's sign bit lands in bit 31, convert to signed, then shift right arithmetically by the same amount. Two: flip the field's sign bit with xor, then subtract that bit's value. In C++20 both are fully defined for 32-bit integers.
-- **1.5** A `constexpr` helper can be checked with `static_assert`, which fails the build instead of a test run. `assert` is allowed inside `constexpr` functions: at run time it works as usual, and a failing `assert` during compile-time evaluation becomes a compile error. Keep a few `static_assert`s as smoke checks and put the big tables in runtime tests.
-- **1.6** Build the string from bit 31 down to bit 0 with your own `bit()`, adding a space after every fourth bit except the last. `reserve(39)` (32 digits plus 7 spaces) avoids reallocations. `std::bitset<32>(value).to_string()` gives the digits without spaces if you want a shortcut.
-- **T1.2** One parameterized suite per helper (`TEST_P` with `INSTANTIATE_TEST_SUITE_P`) turns each row of the worked-examples table into one line.
-- **T1.3** `EXPECT_DEATH(statement, "")` passes when the statement kills the process. Asserts disappear when `NDEBUG` is defined, and release builds define it, so build the death test only when `NDEBUG` is not defined (or skip it with `GTEST_SKIP()`).
+- **1.1** **Gotcha:** building a mask by shifting 1 left by the field width is undefined when the width is 32. Handle the full-width case separately, or build the mask in a 64-bit type.
+- **1.3** Two common approaches. One: shift left so the field's sign bit lands in bit 31, convert to signed, then shift right arithmetically by the same amount. Two: flip the field's sign bit with xor, then subtract that bit's value. In C++20 both are fully defined for 32-bit integers.
+- **1.4** A `constexpr` helper can be checked with `static_assert`, which fails the build instead of a test run. Keep a few of those as smoke checks and put the large tables in runtime tests.
+- **1.5** Examples: `Word` (unsigned 32-bit), `SWord` (signed 32-bit), `Addr`, `RegIndex`. See the signed and unsigned rule under General.
 - **Gotcha:** integer promotion. A `uint8_t` or `uint16_t` inside an expression becomes a signed `int` before shifts and arithmetic, so shifting a byte left by 24 lands in the sign bit of an `int`. Convert to your 32-bit unsigned type before shifting.
 
 ## Lab 2
@@ -58,7 +53,7 @@ Lab 0 is a step-by-step walkthrough with code in `labs.md`, so it has no hints. 
 - **3.1** An index outside 0 to 31 is a bug in your simulator, not in the guest program, so `assert` is the right tool.
 - **3.2** A `static constexpr std::array` of 32 `std::string_view`s. x8 is both `s0` and `fp`; objdump prints `s0`.
 - **3.3** In C++20 you can default `operator==` for a struct whose members are comparable, and `std::array` already compares element by element.
-- **3.4** Use `std::optional` for the register write and for the memory write, since most instructions do one or neither. Record the width of memory writes. Keep the record small and made of plain integers: you create one per instruction, and in Extension E6 it crosses into SystemVerilog through DPI-C. A defaulted `operator==` works here too, since `std::optional` of a comparable type is comparable.
+- **3.4** Use `std::optional` for the register write and for the memory write, since most instructions do one or neither. Record the width of memory writes. Keep the record small and made of plain integers: you create one per instruction, and in Extension E6 it crosses into SystemVerilog through DPI-C.
 
 ## Lab 4
 
