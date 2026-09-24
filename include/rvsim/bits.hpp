@@ -1,3 +1,6 @@
+#ifndef BITS_HPP
+#define BITS_HPP
+
 #include <cassert>
 #include <iomanip>
 #include <string>
@@ -10,8 +13,7 @@ namespace rvsim {
 //with 0 ≤ lo ≤ hi ≤ 31. Returns the bits
 //from hi down to lo as a Word, 
 [[nodiscard]]
-constexpr Word 
-bits(Word value, uint32_t hi, uint32_t lo) noexcept{
+constexpr Word bits(Word value, uint32_t hi, uint32_t lo) noexcept{
     assert(hi >= lo);
     assert(hi <= 31);
 
@@ -66,3 +68,5 @@ inline std::string to_binary_string(Word value) {
     return binary;
 }
 }
+
+#endif

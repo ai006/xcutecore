@@ -5,8 +5,16 @@
 // tutorial on Google Test(GTest)
 //https://helpmetest.com/blog/gtest-tutorial-cpp-unit-testing/
 
+static_assert(rvsim::bits(0x00B50633, 11, 7) == 12);           // rd of add a2, a0, a1
+static_assert(rvsim::bits(0xDEADBEEF, 31, 0) == 0xDEADBEEF);   // full width
+static_assert(rvsim::bit(0x40A586B3, 30));                     // sub a3, a1, a0
+static_assert(!rvsim::bit(0x00B50633, 30));                    // add a2, a0, a1
+static_assert(rvsim::sign_extend(0x7FF, 12) == 0x000007FF);    // largest 12-bit value
+static_assert(rvsim::sign_extend(0xFFF, 12) == 0xFFFFFFFF);    // -1
+
+
 TEST(TestingBits, ExtractSubstring1) {
-  EXPECT_EQ(rvsim::bits(0x00B50633, 6, 0), 0x33);
+  EXPECT_EQ(rvsim::bits(0x00B50633, 6, 0), 0x33u);
 }
 
 TEST(TestingBits, ExtractSubstring2) {
@@ -14,7 +22,7 @@ TEST(TestingBits, ExtractSubstring2) {
 }
 
 TEST(TestingBits, ExtractSubstring3) {
-  EXPECT_EQ(rvsim::bits(0x00B50633, 19, 15), 10);
+  EXPECT_EQ(rvsim::bits(0x00B50633, 19, 15), 10u);
 }
 
 TEST(TestingBits, ExtractSubstring4) {

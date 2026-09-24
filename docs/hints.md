@@ -1,6 +1,6 @@
 # Hints
 
-Hints are keyed to the objective numbers in `labs.md`. Try the objective first. **Gotcha** marks bugs that commonly cost hours. There is no code here. Names are suggestions: types in PascalCase and functions in snake_case. If you prefer snake_case types like `load_instruction`, rename as you go and stay consistent.
+Hints are keyed to the objective numbers in `labs.md`. Try the objective first. **Gotcha** marks bugs that commonly cost hours. There is no code here. Names are suggestions: types in PascalCase and functions in snake_case. If you prefer snake_case types like `load_instruction`, rename as you go and stay consistent. Labs with their own walkthrough file (`hints_lab2.md` so far) are covered there instead; this file keeps the general notes and the hints for the other labs.
 
 ## Notes on the fmash16 post
 
@@ -39,26 +39,16 @@ Lab 0 is a step-by-step walkthrough with code in `labs.md`, so it has no hints. 
 
 ## Lab 2
 
-- **2.1** Give `Device` a virtual destructor, because devices will be destroyed through base pointers. Reads and writes take an offset from the device's start, not a bus address; translation is the bus's job. A `name()` makes error messages clearer.
-- **2.1** A member function template can't be virtual. Declare one virtual read and one virtual write per width (or a single virtual pair that takes the width as a parameter), then add a non-virtual template read and write on top that pick the width from `sizeof(T)`. Templates layered on virtual dispatch is a pattern worth knowing.
-- **2.2** Allocate the storage once, in the constructor, as a `std::vector<std::uint8_t>` of the requested size, zero-filled. Take the size as a constructor argument.
-- **2.3** Assemble multi-byte values from single bytes with shifts, least significant byte at the lowest offset. That works on any host. If you prefer `std::memcpy`, check `std::endian::native` and document that you assume a little-endian host.
-- **2.3** Constrain the template with `std::unsigned_integral` so a read of `int` doesn't compile.
-- **2.4** Derive from `std::runtime_error`, store the address, width, and access type, and build the message once in the constructor. Check the whole access (offset plus width must not exceed the size), not just the first byte.
-- **2.4** **Gotcha:** offset plus width can overflow near the top of the 32-bit address space and wrap to a small number that passes the check. Compare in a 64-bit type, or first check that the width fits in the size and then compare the offset against size minus width.
-- **2.5** A small vector of (base, size, device) entries with a linear search is enough for two or three devices. Simplest ownership: the bus holds `std::unique_ptr<Device>`. If a test needs to inspect a device after mapping it, keep a plain pointer to it before moving it into the bus.
-- **2.5** Why fetch gets its own entry point even though it reaches the same memory: fetch faults and data faults are different stop reasons, and Lab 15 sends fetches through a different cache.
-- **2.6** `std::span<const std::uint8_t>` is a good parameter type for "some bytes from anywhere": a vector, an array in a test, or a file buffer.
-- **2.7** `std::hex`, `std::setw`, and `std::setfill` from `<iomanip>`. Stream flags stick after you set them, so restore them, or format into a `std::ostringstream` and return the string.
-- **T2.6** GoogleTest's typed tests (`TYPED_TEST`) run one test body once for each type in a list.
+Lab 2 has its own walkthrough: `hints_lab2.md`.
 
 ## Lab 3
 
 - **3.1** Avoid a non-const `operator[]` that returns a reference: `regs[0] = 5` would compile and break x0. Use explicit read and write functions, and ignore writes to index 0. That is cleaner than re-zeroing x0 after every instruction (as the fmash16 post does), because a pipeline has no single "after every instruction" moment.
 - **3.1** An index outside 0 to 31 is a bug in your simulator, not in the guest program, so `assert` is the right tool.
 - **3.2** A `static constexpr std::array` of 32 `std::string_view`s. x8 is both `s0` and `fp`; objdump prints `s0`.
-- **3.3** In C++20 you can default `operator==` for a struct whose members are comparable, and `std::array` already compares element by element.
+- **3.3** In C++20 you can default `operator==` for a class whose members are comparable, private members included. `std::array` already compares element by element, so `RegisterFile`'s defaulted `==` works, and `ArchState`'s works because `RegisterFile`'s does.
 - **3.4** Use `std::optional` for the register write and for the memory write, since most instructions do one or neither. Record the width of memory writes. Keep the record small and made of plain integers: you create one per instruction, and in Extension E6 it crosses into SystemVerilog through DPI-C. A defaulted `operator==` works here too, since `std::optional` of a comparable type is comparable.
+- **T3.3, T3.4** **Gotcha:** with `-Wextra`, GCC 13 rejects a designated initializer that leaves out a member, such as `CommitRecord{.pc = 0x80000010, .word = 0xFEC12E23, .mem_write = w}`, with `missing initializer for member` (`-Wmissing-field-initializers`). Name every member, writing `.reg_write = std::nullopt` for an empty optional, or set the fields one at a time after construction.
 
 ## Lab 4
 

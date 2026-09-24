@@ -2,7 +2,7 @@
 
 You are building a small computer in C++: a RISC-V RV32I CPU and a memory, connected by a bus, with instructions and data sharing one address space (Von Neumann). The CPU starts unpipelined: each instruction goes through fetch, decode, execute, memory, and write back before the next one starts. Once it runs real programs and passes the official tests, you turn it into a cycle-level 5-stage pipeline, then add branch prediction and caches.
 
-Every lab lists objectives, tests, a "done when" check, and the C++ it exercises. Lab 0 is the exception: a step-by-step setup walkthrough with code. Objectives are numbered by lab (2.3 is Lab 2, objective 3), and `hints.md` uses the same numbers. Each objective says what goes in, what comes out, and gives an example; `hints.md` covers how to build it. Try each objective before opening its hint. Names of functions, classes, files, and flags are suggestions: rename them freely, but keep the inputs and outputs.
+Every lab lists objectives, tests, a "done when" check, and the C++ it exercises. Lab 0 is the exception: a step-by-step setup walkthrough with code. Objectives are numbered by lab (2.3 is Lab 2, objective 3), and the hints use the same numbers. Each objective says what to build, what goes in, what comes out, and gives an example; objectives that build a class list the members it needs. The hints cover how to build it. Lab 2 has its own walkthrough, `hints_lab2.md`, and later labs will get one each as they are rewritten; `hints.md` keeps the general notes and the hints for labs that don't have their own file yet. Try each objective before opening its hint. Names of functions, classes, files, and flags are suggestions: rename them freely, but keep the inputs and outputs.
 
 ## Ground rules
 
@@ -57,6 +57,157 @@ The life of one instruction on the single-cycle CPU, using `add a2, a0, a1` at 0
 5. **Write back:** 12 goes into a2, and `step()` returns a `CommitRecord`: pc 0x80000008, word 0x00B50633, x12 = 12. (Labs 3, 7)
 
 The pipeline (Labs 10 to 12) runs the same five steps, with up to five instructions in different steps at once.
+
+## Where the files end up
+
+Every file the core labs (0 to 16) leave in the repository, and the lab that creates it. It grows out of the Step 0.2 layout, with `scripts/`, `results/`, and `third_party/` added along the way. Like every name in these labs, the file names are suggestions. Not shown: build output (`build/`, including the program builds under `tests/programs/build/`), the `compile_commands.json` link, and anything the Phase 8 extensions add.
+
+```
+.
+├── CMakeLists.txt                     Lab 0
+├── README.md                          Lab 0; results added in Labs 14 and 16
+├── .clang-format                      Lab 0
+├── .gitignore                         Lab 0
+├── docs/
+│   ├── DESIGN.md                      Lab 0; grows with every decision you record
+│   ├── labs.md
+│   ├── hints.md                       general notes, plus labs without their own file
+│   ├── hints_lab2.md                  Lab 2
+│   └── hints_lab3.md ...              one per lab as they are written
+├── include/
+│   └── rvsim/
+│       ├── version.hpp                Lab 0
+│       ├── types.hpp                  Lab 1
+│       ├── bits.hpp                   Lab 1
+│       ├── device.hpp                 Lab 2
+│       ├── memory_fault.hpp           Lab 2
+│       ├── memory.hpp                 Lab 2
+│       ├── bus.hpp                    Lab 2
+│       ├── loader.hpp                 Lab 2 (load_bytes), Lab 8 (load_binary, load_elf)
+│       ├── hex_dump.hpp               Lab 2
+│       ├── register_file.hpp          Lab 3
+│       ├── arch_state.hpp             Lab 3
+│       ├── commit_record.hpp          Lab 3
+│       ├── fields.hpp                 Lab 4
+│       ├── instruction.hpp            Lab 5
+│       ├── instructions.hpp           Labs 5, 6
+│       ├── decode.hpp                 Lab 5
+│       ├── alu.hpp                    Lab 6
+│       ├── stages.hpp                 Lab 7
+│       ├── stop_reason.hpp            Lab 7
+│       ├── single_cycle_cpu.hpp       Lab 7
+│       ├── console_device.hpp         Lab 8
+│       ├── trace.hpp                  Lab 9
+│       ├── cpu_model.hpp              Lab 10
+│       ├── pipelined_cpu.hpp          Labs 10 to 12
+│       ├── hazards.hpp                Lab 11
+│       ├── branch_predictor.hpp       Lab 13
+│       ├── btb.hpp                    Lab 13
+│       ├── saturating_counter.hpp     Lab 14
+│       ├── bimodal_predictor.hpp      Lab 14
+│       ├── cache.hpp                  Lab 15
+│       ├── replacement_policy.hpp     Lab 15
+│       └── memory_hierarchy.hpp       Labs 15, 16
+├── src/
+│   ├── CMakeLists.txt                 Lab 0; lists every .cpp
+│   ├── version.cpp                    Lab 0
+│   ├── memory_fault.cpp               Lab 2
+│   ├── memory.cpp                     Lab 2
+│   ├── bus.cpp                        Lab 2
+│   ├── loader.cpp                     Labs 2, 8
+│   ├── hex_dump.cpp                   Lab 2
+│   ├── register_file.cpp              Lab 3
+│   ├── arch_state.cpp                 Lab 3
+│   ├── instruction.cpp                Lab 5
+│   ├── instructions.cpp               Labs 5, 6
+│   ├── decode.cpp                     Lab 5
+│   ├── alu.cpp                        Lab 6
+│   ├── stop_reason.cpp                Lab 7
+│   ├── single_cycle_cpu.cpp           Lab 7
+│   ├── console_device.cpp             Lab 8
+│   ├── trace.cpp                      Lab 9
+│   ├── pipelined_cpu.cpp              Labs 10 to 12
+│   ├── hazards.cpp                    Lab 11
+│   ├── branch_predictor.cpp           Lab 13 (static predictors, make_predictor)
+│   ├── btb.cpp                        Lab 13
+│   ├── bimodal_predictor.cpp          Lab 14
+│   ├── cache.cpp                      Lab 15
+│   └── memory_hierarchy.cpp           Labs 15, 16
+├── sim/
+│   ├── CMakeLists.txt                 Lab 0
+│   ├── main.cpp                       Lab 0; grows in Labs 8, 9, 10, 13, 15
+│   ├── options.hpp                    Lab 8 (command-line parsing)
+│   └── options.cpp                    Lab 8
+├── tests/
+│   ├── CMakeLists.txt                 Lab 0; lists every test file and CTest entry
+│   ├── unit/
+│   │   ├── smoke_test.cpp             Lab 0
+│   │   ├── bits_test.cpp              Lab 1
+│   │   ├── memory_test.cpp            Lab 2
+│   │   ├── bus_test.cpp               Lab 2
+│   │   ├── loader_test.cpp            Labs 2, 8
+│   │   ├── register_file_test.cpp     Lab 3
+│   │   ├── arch_state_test.cpp        Lab 3
+│   │   ├── commit_record_test.cpp     Lab 3
+│   │   ├── fields_test.cpp            Lab 4
+│   │   ├── decode_test.cpp            Lab 5
+│   │   ├── alu_test.cpp               Lab 6
+│   │   ├── execute_test.cpp           Lab 6
+│   │   ├── test_helpers.hpp           Labs 7, 11 (load words, run on one or both CPUs)
+│   │   ├── single_cycle_cpu_test.cpp  Lab 7
+│   │   ├── console_device_test.cpp    Lab 8
+│   │   ├── trace_test.cpp             Lab 9
+│   │   ├── pipeline_test.cpp          Lab 10
+│   │   ├── hazards_test.cpp           Lab 11 (the decision functions)
+│   │   ├── data_hazard_test.cpp       Lab 11 (the programs)
+│   │   ├── control_hazard_test.cpp    Lab 12
+│   │   ├── differential_test.cpp      Lab 12
+│   │   ├── predictor_test.cpp         Lab 13
+│   │   ├── bimodal_test.cpp           Lab 14
+│   │   ├── cache_test.cpp             Lab 15
+│   │   └── cache_timing_test.cpp      Lab 16
+│   ├── programs/
+│   │   ├── Makefile                   Lab 8
+│   │   ├── link.ld                    Lab 8
+│   │   ├── runtime/
+│   │   │   ├── crt0.S                 Lab 8
+│   │   │   ├── runtime.c              Lab 8
+│   │   │   └── runtime.h              Lab 8
+│   │   ├── lab0/
+│   │   │   └── first.S                Lab 0
+│   │   ├── lab4/
+│   │   │   └── vectors.S              Lab 4
+│   │   └── suite/                     Lab 8, one self-checking program per file
+│   │       ├── fib_loop.c
+│   │       ├── fib_recursive.c
+│   │       ├── bubble_sort.c
+│   │       ├── strings.c
+│   │       ├── gcd.c
+│   │       ├── multiply.c
+│   │       ├── xorshift.c
+│   │       ├── collatz.c
+│   │       └── hello.c
+│   ├── data/
+│   │   └── first.elf                  Lab 8 (T8.1)
+│   ├── riscv-tests-env/
+│   │   ├── riscv_test.h               Lab 9
+│   │   ├── link.ld                    Lab 9
+│   │   └── Makefile                   Lab 9 (builds the rv32ui tests)
+│   └── golden/
+│       └── first.trace                Lab 9 (T9.2)
+├── scripts/
+│   ├── sweep.py                       Lab 14; reused in Lab 16
+│   └── plot.py                        Lab 14; reused in Lab 16
+├── results/
+│   ├── predictor_sweep.csv            Lab 14
+│   ├── mpki_vs_entries.png            Lab 14
+│   ├── cache_sweep.csv                Lab 16
+│   └── cpi_vs_cache_size.png          Lab 16
+└── third_party/
+    └── riscv-tests/                   Lab 9 (git submodule)
+```
+
+One catch for later: the Lab 0 `.gitignore` ignores `*.elf`, but Lab 8 checks `tests/data/first.elf` into the repository. Add a `!tests/data/*.elf` line to `.gitignore` when you get there.
 
 ---
 
@@ -511,28 +662,92 @@ All helpers work on plain integers: a `Word` goes in, and a `Word` or a `bool` c
 
 **Where this fits:** in Lab 7 the fetch stage asks the bus for 4 bytes at the pc, and the memory stage asks it to load or store data. Both reach the same `Memory` object, which is what makes this a Von Neumann machine. In Lab 8 you map a console device next to memory, and in Lab 15 caches sit in front of the bus.
 
-Every access has an address (or, inside a device, an offset), a width of 1, 2, or 4 bytes, and a value that travels as a `Word`. Reads return the bytes zero-extended to a `Word`; writes store only the low `width` bytes of the `Word`. Sign extension for LB and LH happens later, in the load instruction (Lab 6), not here.
+```
+CPU (Lab 7)
+ │   fetch(addr)    read(addr, width)    write(addr, width, value)
+ ▼
+Bus: finds the device that holds addr, subtracts that device's base
+ ├── Memory at 0x80000000, 1 MiB        bus address 0x80000010 arrives as offset 0x10
+ └── ConsoleDevice at 0x10000000        Lab 8
+```
+
+**Rules for every access**
+- An access has an address, a width of 1, 2, or 4 bytes, and a value that travels as a `Word`. On the bus the address is a bus address; inside a device it is an offset from the device's first byte.
+- Reads return the bytes zero-extended to a `Word`. Writes store only the low `width` bytes of the value. Sign extension for LB and LH happens later, in the load instruction (Lab 6), not here.
+- Types: addresses and offsets are `Addr`, values are `Word`, and byte counts (sizes, widths, lengths) are `std::size_t`. `hints_lab2.md` explains why a size is neither `int` nor `Word`.
+
+**Hints:** `hints_lab2.md` walks through every objective with scaffolds and gotchas.
+
+**Files:** add each `.cpp` to `rvcore` in `src/CMakeLists.txt` and each test file to `unit_tests` in `tests/CMakeLists.txt`.
+
+| File | What goes in it | Objectives |
+|---|---|---|
+| `include/rvsim/device.hpp` | `Device` (header only) | 2.1 |
+| `include/rvsim/memory.hpp`, `src/memory.cpp` | `Memory` | 2.2, 2.3, 2.4 |
+| `include/rvsim/memory_fault.hpp`, `src/memory_fault.cpp` | `AccessType`, `MemoryFault` | 2.4 |
+| `include/rvsim/bus.hpp`, `src/bus.cpp` | `Bus`, `BusValue` | 2.5, 2.6 |
+| `include/rvsim/loader.hpp`, `src/loader.cpp` | `load_bytes` | 2.7 |
+| `include/rvsim/hex_dump.hpp`, `src/hex_dump.cpp` | `hex_dump` | 2.8 |
+| `tests/unit/memory_test.cpp` | T2.1 to T2.4 | |
+| `tests/unit/bus_test.cpp` | T2.5, T2.6 | |
+| `tests/unit/loader_test.cpp` | T2.7, T2.8 | |
 
 **Objectives**
-- [ ] 2.1 **Abstract `Device`**. `size()` returns how many bytes the device covers. Reads and writes of 1, 2, or 4 bytes take an offset from the device's first byte, not a bus address.
-- [ ] 2.2 **`Memory`**, derived from `Device`. Its constructor takes a size in bytes and allocates that much storage, all zeros. This is where the program's instructions and data will live.
-- [ ] 2.3 **Little-endian** multi-byte access. Example: writing 0x12345678 as 4 bytes at offset 0 stores the bytes 78 56 34 12 at offsets 0 to 3. A 2-byte read at offset 1 then returns 0x3456, and a 1-byte read at offset 3 returns 0x12.
-- [ ] 2.4 **Bounds checking** that throws a custom exception, `MemoryFault`, carrying the address, the width, and the access type (fetch, read, or write). Example: in a 16-byte memory, a 4-byte read at offset 12 works and one at offset 13 throws.
-- [ ] 2.5 **`Bus`**. `map(base, device)` takes ownership of a device and places it at `base`. Instruction fetch (always 4 bytes), data read, and data write each take a bus address and forward to the right device at the right offset. An access must fit entirely inside one device; anything else throws `MemoryFault` with the bus address. Mapping a device that overlaps another one is rejected. Example: with 1 MiB of memory at 0x80000000, address 0x80000010 reaches memory offset 0x10, 0x800FFFFC is the last valid word, and both 0x80100000 and 0x7FFFFFFC throw.
-- [ ] 2.6 **Loader**: copy a run of bytes onto the bus starting at an address. Example: loading the bytes 13 05 50 00 at 0x80000000 and then fetching at 0x80000000 returns 0x00500513, the first instruction of your Lab 0 program (`addi a0, zero, 5`). Loading files comes in Lab 8.
-- [ ] 2.7 **Hex dump**: return a `std::string` showing an address range, 16 bytes per line, address first. Example first line after loading the first four words of `first.S`: `80000000: 13 05 50 00 93 05 70 00 33 06 b5 00 b3 86 a5 40`.
+- [X] 2.1 **Abstract class `Device`**: anything the bus can map, seen as a block of bytes. It has no data members. Its public interface:
 
-**Tests**
-- [ ] T2.1 Write a 32-bit value and read its bytes back one at a time: the least significant byte sits at the lowest address.
-- [ ] T2.2 Round trips at every width at the first and last valid addresses.
-- [ ] T2.3 Accesses that cross the end throw, including a 4-byte read that starts 1, 2, or 3 bytes before the end.
-- [ ] T2.4 With two devices mapped, each address reaches the right device; unmapped addresses throw; overlapping ranges are rejected.
-- [ ] T2.5 The loader places bytes at the right address.
-- [ ] T2.6 A single typed test body covers the 8, 16, and 32-bit round trips.
+  | Member | Takes | Returns | Kind |
+  |---|---|---|---|
+  | destructor | | | virtual, defaulted |
+  | `size()` | nothing | `std::size_t`: how many bytes the device covers | pure virtual, `const` |
+  | `read(offset, width)` | `Addr offset`, `std::size_t width` | `Word`: the bytes, zero-extended | pure virtual |
+  | `write(offset, width, value)` | `Addr offset`, `std::size_t width`, `Word value` | nothing | pure virtual |
+
+  `offset` counts from the device's first byte (offset 0), never a bus address; turning bus addresses into offsets is the bus's job (2.5). Because the class has pure virtual functions, `Device d;` must not compile. Example: a 1 MiB `Memory` reports `size()` 0x100000, and a 4-byte bus read at 0x80000010 reaches it as `read(0x10, 4)`.
+- [X] 2.2 **`Memory`**, publicly derived from `Device`: the RAM that holds the program's instructions and data.
+  - Constructor: takes the size in bytes as a `std::size_t` and allocates that many bytes, all zero. Mark it `explicit`.
+  - Storage: a `std::vector<std::uint8_t>` data member, one element per byte.
+  - Overrides `size()`, `read()`, and `write()`, each marked `override`.
+  - In this objective `read` and `write` handle width 1 only; 2.3 adds 2 and 4. `read(offset, 1)` returns the byte at `offset`, and `write(offset, 1, value)` stores the low 8 bits of `value`.
+
+  Example: a `Memory` built with 16 has `size()` 16 and reads 0 at every offset. After `write(3, 1, 0xAB)`, `read(3, 1)` returns 0xAB. `write(4, 1, 0x1FF)` stores 0xFF.
+- [ ] 2.3 **Little-endian 2- and 4-byte access** in `Memory::read` and `Memory::write`: the byte at the lowest offset is the least significant. Accesses don't need to be aligned (Lab 9's `rv32ui-ma_data` test runs misaligned loads and stores). Examples: writing 0x12345678 as 4 bytes at offset 0 stores the bytes 78 56 34 12 at offsets 0 to 3. A 2-byte read at offset 1 then returns 0x3456, and a 1-byte read at offset 3 returns 0x12. A 2-byte write of 0xABCD1234 at offset 8 stores 34 12 at offsets 8 and 9 and leaves offset 10 alone.
+- [ ] 2.4 **`MemoryFault`** and bounds checks.
+  - `enum class AccessType` with `Fetch`, `Read`, and `Write`.
+  - `MemoryFault`, derived from `std::runtime_error`. Its constructor takes an `Addr`, a `std::size_t` width, and an `AccessType`; the getters `addr()`, `width()`, and `type()` return them. `what()` returns a message such as `memory fault: 4-byte read at 0x0000000d`.
+  - `Memory::read` throws `MemoryFault` with `AccessType::Read`, and `Memory::write` with `AccessType::Write`, when the access doesn't fit entirely inside the memory. The fault carries the offset, because a memory only knows offsets and can't tell a fetch from a data read. The bus (2.5) reports bus addresses and fetches.
+
+  Example: in a 16-byte memory, a 4-byte read at offset 12 works; one at offset 13 throws, with `addr()` 13, `width()` 4, and `type()` `AccessType::Read`. A 1-byte write at offset 16 throws with `AccessType::Write`.
+- [ ] 2.5 **`Bus`**: owns every device and turns bus addresses into device offsets. Public members:
+
+  | Member | Takes | Returns | Does |
+  |---|---|---|---|
+  | `map(base, device)` | `Addr base`, `std::unique_ptr<Device> device` | nothing | Takes ownership and places the device at `base`, covering `base` to `base + size() - 1`. Throws `std::invalid_argument` if that range overlaps a mapped device or runs past 0xFFFFFFFF. |
+  | `fetch(addr)` | `Addr` | `Word` | Instruction fetch, always 4 bytes. Its faults say `AccessType::Fetch`. |
+  | `read(addr, width)` | `Addr`, `std::size_t` | `Word` | Data read. Its faults say `AccessType::Read`. |
+  | `write(addr, width, value)` | `Addr`, `std::size_t`, `Word` | nothing | Data write. Its faults say `AccessType::Write`. |
+
+  Each access finds the device whose range holds `addr`, subtracts that device's base, and forwards the offset. If no device holds `addr`, or the access doesn't fit entirely inside the device that does, the bus throws `MemoryFault` carrying the bus address. Example, with 1 MiB of memory at 0x80000000: address 0x80000010 reaches memory offset 0x10, 0x800FFFFC is the last valid word, a 4-byte read at 0x800FFFFE throws because it runs off the end, and both 0x80100000 and 0x7FFFFFFC throw. Mapping another device at 0x800FF000 throws `std::invalid_argument`; one at 0x80100000 is fine, because touching is not overlapping.
+- [ ] 2.6 **Typed access** on the `Bus`, for when the width is known at compile time.
+  - A concept `BusValue` that accepts exactly `std::uint8_t`, `std::uint16_t`, and `std::uint32_t`.
+  - `read<T>(addr)` returns a `T`, and `write<T>(addr, value)` takes a `T`. Both are member function templates constrained with `BusValue`. The width is `sizeof(T)`, and both forward to the 2.5 functions.
+
+  Examples: after `bus.write<std::uint32_t>(0x80000000, 0x12345678)`, `bus.read<std::uint16_t>(0x80000002)` returns 0x1234. `bus.write(0x80000004, std::uint8_t{0xFF})` writes one byte, with `T` deduced from the value. `bus.write(0x80000004, 0xFF)` (an `int`) and `bus.read<std::uint64_t>(0x80000000)` must not compile.
+- [ ] 2.7 **Loader**: a free function `load_bytes(bus, start, bytes)` that takes a `Bus&`, an `Addr`, and a `std::span<const std::uint8_t>`, writes the bytes one at a time starting at `start`, and returns nothing. A byte that doesn't fit throws the bus's `MemoryFault`. Example: loading the bytes 13 05 50 00 at 0x80000000 and then fetching at 0x80000000 returns 0x00500513, the first instruction of your Lab 0 program (`addi a0, zero, 5`). Loading files comes in Lab 8.
+- [ ] 2.8 **Hex dump**: a free function `hex_dump(bus, start, length)` that takes a `Bus&`, an `Addr`, and a `std::size_t`, and returns a `std::string`. One line per 16 bytes: the address of the line's first byte as 8 hex digits, a colon, then each byte as a space and two hex digits, then a newline. Hex is lowercase, and the last line may be shorter. Example: after loading the first four words of `first.S` at 0x80000000, `hex_dump(bus, 0x80000000, 16)` returns `"80000000: 13 05 50 00 93 05 70 00 33 06 b5 00 b3 86 a5 40\n"`.
+
+**Tests** (one group per objective)
+- [X] T2.1 Compile-time checks that `Device` is abstract and has a virtual destructor: `std::is_abstract_v` and `std::has_virtual_destructor_v` inside `static_assert`s.
+- [X] T2.2 A new 16-byte memory has `size()` 16 and reads 0 at every offset. A 1-byte round trip, and a 1-byte write of 0x1FF reads back 0xFF.
+- [ ] T2.3 Write a 32-bit value and read its bytes back one at a time: the least significant byte sits at the lowest offset. The 2.3 examples, including the 2-byte write that leaves its neighbor alone. Round trips at every width at the first and last valid offsets.
+- [ ] T2.4 Accesses that cross the end throw, including a 4-byte read that starts 1, 2, or 3 bytes before the end, and the fault's `addr()`, `width()`, and `type()` are right. The last valid access at each width does not throw.
+- [ ] T2.5 With two devices mapped, each address reaches the right device at the right offset (check through the `Memory` objects themselves). Unmapped addresses throw. An access that runs off the end of a device throws, even when another device starts right after it. Faults carry the bus address and the right `AccessType` (a failed `fetch` says `Fetch`). Overlapping ranges are rejected; touching ones are not.
+- [ ] T2.6 A single typed test body covers the 8, 16, and 32-bit round trips through `read<T>` and `write<T>`.
+- [ ] T2.7 The loader places bytes at the right addresses: after the 2.7 load, `fetch` returns 0x00500513. Loading past the end of memory throws.
+- [ ] T2.8 The 2.8 example string, exactly. A 20-byte dump has two lines, the second with 4 bytes.
 
 **Done when:** all tests pass and you can explain why instruction fetch and data access in your design reach the same memory.
 
-**C++ focus:** abstract classes, pure virtual functions, virtual destructors, templates layered on virtual functions, concepts, custom exceptions, `std::vector`, `std::span`, `std::unique_ptr` ownership, RAII.
+**C++ focus:** abstract classes, pure virtual functions, virtual destructors, `override`, templates layered on virtual functions, writing your own concept, custom exceptions, `std::vector`, `std::span`, `std::unique_ptr` ownership, RAII.
 
 ### Lab 3: Register file and CPU state (S)
 
@@ -540,19 +755,53 @@ Every access has an address (or, inside a device, an offset), a width of 1, 2, o
 
 **Where this fits:** decode reads source registers from the `RegisterFile`, and write back updates it. Tests compare whole `ArchState`s. Every instruction that retires produces a `CommitRecord`, which is the unit of truth for tracing (Lab 9), for comparing your two CPUs (Phase 5), and for checking your RTL core (Extension E6).
 
+**Files:** add each `.cpp` to `rvcore` and each test file to `unit_tests`, as in Lab 2.
+
+| File | What goes in it | Objectives |
+|---|---|---|
+| `include/rvsim/register_file.hpp`, `src/register_file.cpp` | `RegisterFile`, `abi_name` | 3.1, 3.2 |
+| `include/rvsim/arch_state.hpp`, `src/arch_state.cpp` | `ArchState` and its `operator<<` | 3.3 |
+| `include/rvsim/commit_record.hpp` | `RegWrite`, `MemWrite`, `CommitRecord` (header only) | 3.4 |
+| `tests/unit/register_file_test.cpp` | T3.1, T3.2 | |
+| `tests/unit/arch_state_test.cpp` | T3.3 | |
+| `tests/unit/commit_record_test.cpp` | T3.4 | |
+
 **Objectives**
-- [ ] 3.1 **`RegisterFile`**: 32 registers of type `Word`. Reading takes a `RegIndex` and returns a `Word`; writing takes a `RegIndex` and a `Word`. x0 always reads 0 and ignores writes. Example: after writing 5 to x0 and 12 to x10, x0 reads 0 and x10 reads 12.
-- [ ] 3.2 **ABI names**: a function that takes a `RegIndex` and returns its ABI name as a `std::string_view`. Examples: 10 gives `a0`, 2 gives `sp`, 8 gives `s0`.
-- [ ] 3.3 **`ArchState`**: the pc plus all 32 registers. Two states are equal only if the pc and every register match. Printing one gives a readable table, four registers per line, each with its number, ABI name, and hex value.
-- [ ] 3.4 **`CommitRecord`**: one retired instruction. Fields: its pc, its raw word, an optional register write (register number and value), and an optional memory write (address, width, and value). Records compare with `==`, because Phase 5 compares them. Examples:
-  - `sub a3, a1, a0` at 0x8000000C with a0 = 5 and a1 = 7: pc 0x8000000C, word 0x40A586B3, register write x13 = 2, no memory write.
-  - `sw a2, -4(sp)` with sp = 0x800FFFF0 and a2 = 12: no register write, and a 4-byte memory write of 12 to 0x800FFFEC.
+- [ ] 3.1 **`RegisterFile`**: a class holding 32 registers of type `Word`, all 0 when constructed. Public members:
+
+  | Member | Takes | Returns | Does |
+  |---|---|---|---|
+  | `read(index)` | `RegIndex` | `Word` | The value of that register; x0 always reads 0. `const`. |
+  | `write(index, value)` | `RegIndex`, `Word` | nothing | Stores `value`. Writes to x0 are ignored. |
+  | `operator==` | another `RegisterFile` | `bool` | Defaulted: equal when all 32 registers match. 3.3 uses it. |
+
+  An index above 31 is a bug in your simulator, so `assert` it. Don't give the class an `operator[]` that returns a reference (`hints.md` 3.1 says why). Example: after writing 5 to x0 and 12 to x10, x0 reads 0 and x10 reads 12.
+- [ ] 3.2 **ABI names**: a free function `abi_name(index)` that takes a `RegIndex` and returns its ABI name as a `std::string_view`. In order from x0 to x31: `zero ra sp gp tp t0 t1 t2 s0 s1 a0 a1 a2 a3 a4 a5 a6 a7 s2 s3 s4 s5 s6 s7 s8 s9 s10 s11 t3 t4 t5 t6`. Examples: 10 gives `a0`, 2 gives `sp`, and 8 gives `s0` (x8 is also called `fp`, but objdump prints `s0`). The 3.3 printout and Lab 5's disassembler use it.
+- [ ] 3.3 **`ArchState`**: a struct with two members, `Addr pc` and `RegisterFile regs`, both starting at 0. Memory is not part of it: memory lives on the bus, and tests check it there.
+  - A defaulted `operator==`: two states are equal only if the pc and every register match.
+  - `operator<<(std::ostream&, const ArchState&)` prints the pc, then all 32 registers, four per line, each with its number, ABI name, and value as 8 hex digits. Spacing is up to you. The first lines for a state with pc 0x80000008, sp 0x800FFFF0, and a2 = 12:
+
+  ```
+  pc  80000008
+  x0  zero 00000000   x1  ra   00000000   x2  sp   800ffff0   x3  gp   00000000
+  x4  tp   00000000   x5  t0   00000000   x6  t1   00000000   x7  t2   00000000
+  x8  s0   00000000   x9  s1   00000000   x10 a0   00000000   x11 a1   00000000
+  x12 a2   0000000c   x13 a3   00000000   x14 a4   00000000   x15 a5   00000000
+  ```
+- [ ] 3.4 **`CommitRecord`**: one retired instruction, as plain values. Three structs, each with a defaulted `operator==`, because Phase 5 compares records:
+  - `RegWrite`: `RegIndex rd` and `Word value`.
+  - `MemWrite`: `Addr addr`, `std::size_t width`, and `Word value`. For a store, `value` holds only the bytes written, so an SB of 0x1234 records 0x34.
+  - `CommitRecord`: `Addr pc`, `Word word` (the raw instruction), `std::optional<RegWrite> reg_write`, and `std::optional<MemWrite> mem_write`. Most instructions fill one of the two optionals, or neither.
+
+  Examples:
+  - `sub a3, a1, a0` at 0x8000000C with a0 = 5 and a1 = 7: pc 0x8000000C, word 0x40A586B3, `reg_write` of x13 = 2, no `mem_write`.
+  - `sw a2, -4(sp)` at 0x80000010 with sp = 0x800FFFF0 and a2 = 12: pc 0x80000010, word 0xFEC12E23, no `reg_write`, and a `mem_write` of 12, 4 bytes wide, to 0x800FFFEC.
 
 **Tests**
-- [ ] T3.1 Writes to x0 are ignored; x1 through x31 round-trip.
+- [ ] T3.1 A new register file reads 0 everywhere. Writes to x0 are ignored; x1 through x31 round-trip.
 - [ ] T3.2 ABI names: x0 `zero`, x1 `ra`, x2 `sp`, x8 `s0`, x10 `a0`, x31 `t6`.
-- [ ] T3.3 States that differ in one register compare unequal; identical states compare equal.
-- [ ] T3.4 Two `CommitRecord`s that differ only in the width of their memory write compare unequal.
+- [ ] T3.3 States that differ only in the pc, or only in one register, compare unequal; identical states compare equal.
+- [ ] T3.4 Two `CommitRecord`s that differ only in the width of their memory write compare unequal, and so do two that differ only in whether they have a register write.
 
 **Done when:** tests pass and a state dump prints all 32 registers as a readable table.
 

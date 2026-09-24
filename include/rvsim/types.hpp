@@ -1,4 +1,7 @@
+#ifndef TYPES_HPP
+#define TYPES_HPP
 
+#include <cstdint>
 
 //32-bit unsigned integer
 using Word = uint32_t;
@@ -12,3 +15,4 @@ using Addr = uint32_t;
 //a register number 0 to 31
 using regIndex = uint8_t;
 
+#endif
