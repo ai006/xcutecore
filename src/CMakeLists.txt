@@ -1,6 +1,7 @@
 add_library(rvcore STATIC
   version.cpp
   memory.cpp
+  memory_fault.cpp
 )
 target_include_directories(rvcore PUBLIC ${PROJECT_SOURCE_DIR}/include)
 target_compile_features(rvcore PUBLIC cxx_std_20)

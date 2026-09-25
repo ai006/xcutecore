@@ -710,8 +710,8 @@ Bus: finds the device that holds addr, subtracts that device's base
   - In this objective `read` and `write` handle width 1 only; 2.3 adds 2 and 4. `read(offset, 1)` returns the byte at `offset`, and `write(offset, 1, value)` stores the low 8 bits of `value`.
 
   Example: a `Memory` built with 16 has `size()` 16 and reads 0 at every offset. After `write(3, 1, 0xAB)`, `read(3, 1)` returns 0xAB. `write(4, 1, 0x1FF)` stores 0xFF.
-- [ ] 2.3 **Little-endian 2- and 4-byte access** in `Memory::read` and `Memory::write`: the byte at the lowest offset is the least significant. Accesses don't need to be aligned (Lab 9's `rv32ui-ma_data` test runs misaligned loads and stores). Examples: writing 0x12345678 as 4 bytes at offset 0 stores the bytes 78 56 34 12 at offsets 0 to 3. A 2-byte read at offset 1 then returns 0x3456, and a 1-byte read at offset 3 returns 0x12. A 2-byte write of 0xABCD1234 at offset 8 stores 34 12 at offsets 8 and 9 and leaves offset 10 alone.
-- [ ] 2.4 **`MemoryFault`** and bounds checks.
+- [X] 2.3 **Little-endian 2- and 4-byte access** in `Memory::read` and `Memory::write`: the byte at the lowest offset is the least significant. Accesses don't need to be aligned (Lab 9's `rv32ui-ma_data` test runs misaligned loads and stores). Examples: writing 0x12345678 as 4 bytes at offset 0 stores the bytes 78 56 34 12 at offsets 0 to 3. A 2-byte read at offset 1 then returns 0x3456, and a 1-byte read at offset 3 returns 0x12. A 2-byte write of 0xABCD1234 at offset 8 stores 34 12 at offsets 8 and 9 and leaves offset 10 alone.
+- [X] 2.4 **`MemoryFault`** and bounds checks.
   - `enum class AccessType` with `Fetch`, `Read`, and `Write`.
   - `MemoryFault`, derived from `std::runtime_error`. Its constructor takes an `Addr`, a `std::size_t` width, and an `AccessType`; the getters `addr()`, `width()`, and `type()` return them. `what()` returns a message such as `memory fault: 4-byte read at 0x0000000d`.
   - `Memory::read` throws `MemoryFault` with `AccessType::Read`, and `Memory::write` with `AccessType::Write`, when the access doesn't fit entirely inside the memory. The fault carries the offset, because a memory only knows offsets and can't tell a fetch from a data read. The bus (2.5) reports bus addresses and fetches.
@@ -738,8 +738,8 @@ Bus: finds the device that holds addr, subtracts that device's base
 **Tests** (one group per objective)
 - [X] T2.1 Compile-time checks that `Device` is abstract and has a virtual destructor: `std::is_abstract_v` and `std::has_virtual_destructor_v` inside `static_assert`s.
 - [X] T2.2 A new 16-byte memory has `size()` 16 and reads 0 at every offset. A 1-byte round trip, and a 1-byte write of 0x1FF reads back 0xFF.
-- [ ] T2.3 Write a 32-bit value and read its bytes back one at a time: the least significant byte sits at the lowest offset. The 2.3 examples, including the 2-byte write that leaves its neighbor alone. Round trips at every width at the first and last valid offsets.
-- [ ] T2.4 Accesses that cross the end throw, including a 4-byte read that starts 1, 2, or 3 bytes before the end, and the fault's `addr()`, `width()`, and `type()` are right. The last valid access at each width does not throw.
+- [X] T2.3 Write a 32-bit value and read its bytes back one at a time: the least significant byte sits at the lowest offset. The 2.3 examples, including the 2-byte write that leaves its neighbor alone. Round trips at every width at the first and last valid offsets.
+- [X] T2.4 Accesses that cross the end throw, including a 4-byte read that starts 1, 2, or 3 bytes before the end, and the fault's `addr()`, `width()`, and `type()` are right. The last valid access at each width does not throw.
 - [ ] T2.5 With two devices mapped, each address reaches the right device at the right offset (check through the `Memory` objects themselves). Unmapped addresses throw. An access that runs off the end of a device throws, even when another device starts right after it. Faults carry the bus address and the right `AccessType` (a failed `fetch` says `Fetch`). Overlapping ranges are rejected; touching ones are not.
 - [ ] T2.6 A single typed test body covers the 8, 16, and 32-bit round trips through `read<T>` and `write<T>`.
 - [ ] T2.7 The loader places bytes at the right addresses: after the 2.7 load, `fetch` returns 0x00500513. Loading past the end of memory throws.

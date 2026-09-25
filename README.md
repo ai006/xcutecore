@@ -96,14 +96,13 @@ All project code builds with `-Wall -Wextra -Wpedantic -Wconversion -Wsign-conve
 - [x] 2.2 `Memory`: a `Device` backed by a zero-filled `std::vector<std::uint8_t>`, with 1-byte reads and writes.
 - [x] T2.1 `static_assert`s that `Device` is abstract and has a virtual destructor.
 - [x] T2.2 A new memory reads zero everywhere, a byte round-trips, and a write of `0x1FF` stores `0xFF` without touching the next byte.
-
+- [x] 2.3 Little-endian 2- and 4-byte access in `Memory`, aligned or not
+- [x] 2.4 `AccessType` and `MemoryFault`, with bounds checks that throw
 As of 2026-09-24, the sanitizer build (g++-13) compiles with zero warnings and all 17 tests pass.
 
 ### What's left
 
 **Finish Lab 2**
-- [ ] 2.3 Little-endian 2- and 4-byte access in `Memory`, aligned or not
-- [ ] 2.4 `AccessType` and `MemoryFault`, with bounds checks that throw
 - [ ] 2.5 `Bus`: `map`, `fetch`, `read`, and `write`; faults carry bus addresses, and overlapping mappings are rejected
 - [ ] 2.6 Typed access: a `BusValue` concept with `read<T>` and `write<T>`
 - [ ] 2.7 `load_bytes`, which places bytes on the bus
