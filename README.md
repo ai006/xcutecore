@@ -4,7 +4,7 @@ A RISC-V RV32I CPU model in C++20, built step by step from a single-cycle CPU in
 
 **Status:** early. Labs 0, 1, and 2 are done, and Lab 3 (register file and CPU state) is next. The CPU doesn't run RISC-V code yet; the first program runs in Lab 7.
 
-**Why "xCuteCore":** **Xcute** is a play on execute, the heart of the fetch–decode–execute pipeline, and **Core** because it models a single in-order CPU core. Small, focused, and a little cute.
+**Why "xCuteCore":** **Xcute** is a play on execute, and **Core** because it models a single in-order CPU core. Small, focused, and a little cute.
 
 ## About
 
