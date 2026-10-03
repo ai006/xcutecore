@@ -717,7 +717,7 @@ Bus: finds the device that holds addr, subtracts that device's base
   - `Memory::read` throws `MemoryFault` with `AccessType::Read`, and `Memory::write` with `AccessType::Write`, when the access doesn't fit entirely inside the memory. The fault carries the offset, because a memory only knows offsets and can't tell a fetch from a data read. The bus (2.5) reports bus addresses and fetches.
 
   Example: in a 16-byte memory, a 4-byte read at offset 12 works; one at offset 13 throws, with `addr()` 13, `width()` 4, and `type()` `AccessType::Read`. A 1-byte write at offset 16 throws with `AccessType::Write`.
-- [ ] 2.5 **`Bus`**: owns every device and turns bus addresses into device offsets. Public members:
+- [X] 2.5 **`Bus`**: owns every device and turns bus addresses into device offsets. Public members:
 
   | Member | Takes | Returns | Does |
   |---|---|---|---|
@@ -727,23 +727,23 @@ Bus: finds the device that holds addr, subtracts that device's base
   | `write(addr, width, value)` | `Addr`, `std::size_t`, `Word` | nothing | Data write. Its faults say `AccessType::Write`. |
 
   Each access finds the device whose range holds `addr`, subtracts that device's base, and forwards the offset. If no device holds `addr`, or the access doesn't fit entirely inside the device that does, the bus throws `MemoryFault` carrying the bus address. Example, with 1 MiB of memory at 0x80000000: address 0x80000010 reaches memory offset 0x10, 0x800FFFFC is the last valid word, a 4-byte read at 0x800FFFFE throws because it runs off the end, and both 0x80100000 and 0x7FFFFFFC throw. Mapping another device at 0x800FF000 throws `std::invalid_argument`; one at 0x80100000 is fine, because touching is not overlapping.
-- [ ] 2.6 **Typed access** on the `Bus`, for when the width is known at compile time.
+- [X] 2.6 **Typed access** on the `Bus`, for when the width is known at compile time.
   - A concept `BusValue` that accepts exactly `std::uint8_t`, `std::uint16_t`, and `std::uint32_t`.
   - `read<T>(addr)` returns a `T`, and `write<T>(addr, value)` takes a `T`. Both are member function templates constrained with `BusValue`. The width is `sizeof(T)`, and both forward to the 2.5 functions.
 
   Examples: after `bus.write<std::uint32_t>(0x80000000, 0x12345678)`, `bus.read<std::uint16_t>(0x80000002)` returns 0x1234. `bus.write(0x80000004, std::uint8_t{0xFF})` writes one byte, with `T` deduced from the value. `bus.write(0x80000004, 0xFF)` (an `int`) and `bus.read<std::uint64_t>(0x80000000)` must not compile.
-- [ ] 2.7 **Loader**: a free function `load_bytes(bus, start, bytes)` that takes a `Bus&`, an `Addr`, and a `std::span<const std::uint8_t>`, writes the bytes one at a time starting at `start`, and returns nothing. A byte that doesn't fit throws the bus's `MemoryFault`. Example: loading the bytes 13 05 50 00 at 0x80000000 and then fetching at 0x80000000 returns 0x00500513, the first instruction of your Lab 0 program (`addi a0, zero, 5`). Loading files comes in Lab 8.
-- [ ] 2.8 **Hex dump**: a free function `hex_dump(bus, start, length)` that takes a `Bus&`, an `Addr`, and a `std::size_t`, and returns a `std::string`. One line per 16 bytes: the address of the line's first byte as 8 hex digits, a colon, then each byte as a space and two hex digits, then a newline. Hex is lowercase, and the last line may be shorter. Example: after loading the first four words of `first.S` at 0x80000000, `hex_dump(bus, 0x80000000, 16)` returns `"80000000: 13 05 50 00 93 05 70 00 33 06 b5 00 b3 86 a5 40\n"`.
+- [X] 2.7 **Loader**: a free function `load_bytes(bus, start, bytes)` that takes a `Bus&`, an `Addr`, and a `std::span<const std::uint8_t>`, writes the bytes one at a time starting at `start`, and returns nothing. A byte that doesn't fit throws the bus's `MemoryFault`. Example: loading the bytes 13 05 50 00 at 0x80000000 and then fetching at 0x80000000 returns 0x00500513, the first instruction of your Lab 0 program (`addi a0, zero, 5`). Loading files comes in Lab 8.
+- [X] 2.8 **Hex dump**: a free function `hex_dump(bus, start, length)` that takes a `Bus&`, an `Addr`, and a `std::size_t`, and returns a `std::string`. One line per 16 bytes: the address of the line's first byte as 8 hex digits, a colon, then each byte as a space and two hex digits, then a newline. Hex is lowercase, and the last line may be shorter. Example: after loading the first four words of `first.S` at 0x80000000, `hex_dump(bus, 0x80000000, 16)` returns `"80000000: 13 05 50 00 93 05 70 00 33 06 b5 00 b3 86 a5 40\n"`.
 
 **Tests** (one group per objective)
 - [X] T2.1 Compile-time checks that `Device` is abstract and has a virtual destructor: `std::is_abstract_v` and `std::has_virtual_destructor_v` inside `static_assert`s.
 - [X] T2.2 A new 16-byte memory has `size()` 16 and reads 0 at every offset. A 1-byte round trip, and a 1-byte write of 0x1FF reads back 0xFF.
 - [X] T2.3 Write a 32-bit value and read its bytes back one at a time: the least significant byte sits at the lowest offset. The 2.3 examples, including the 2-byte write that leaves its neighbor alone. Round trips at every width at the first and last valid offsets.
 - [X] T2.4 Accesses that cross the end throw, including a 4-byte read that starts 1, 2, or 3 bytes before the end, and the fault's `addr()`, `width()`, and `type()` are right. The last valid access at each width does not throw.
-- [ ] T2.5 With two devices mapped, each address reaches the right device at the right offset (check through the `Memory` objects themselves). Unmapped addresses throw. An access that runs off the end of a device throws, even when another device starts right after it. Faults carry the bus address and the right `AccessType` (a failed `fetch` says `Fetch`). Overlapping ranges are rejected; touching ones are not.
-- [ ] T2.6 A single typed test body covers the 8, 16, and 32-bit round trips through `read<T>` and `write<T>`.
-- [ ] T2.7 The loader places bytes at the right addresses: after the 2.7 load, `fetch` returns 0x00500513. Loading past the end of memory throws.
-- [ ] T2.8 The 2.8 example string, exactly. A 20-byte dump has two lines, the second with 4 bytes.
+- [X] T2.5 With two devices mapped, each address reaches the right device at the right offset (check through the `Memory` objects themselves). Unmapped addresses throw. An access that runs off the end of a device throws, even when another device starts right after it. Faults carry the bus address and the right `AccessType` (a failed `fetch` says `Fetch`). Overlapping ranges are rejected; touching ones are not.
+- [X] T2.6 A single typed test body covers the 8, 16, and 32-bit round trips through `read<T>` and `write<T>`.
+- [X] T2.7 The loader places bytes at the right addresses: after the 2.7 load, `fetch` returns 0x00500513. Loading past the end of memory throws.
+- [X] T2.8 The 2.8 example string, exactly. A 20-byte dump has two lines, the second with 4 bytes.
 
 **Done when:** all tests pass and you can explain why instruction fetch and data access in your design reach the same memory.
 

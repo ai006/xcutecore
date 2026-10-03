@@ -2,7 +2,7 @@
 
 A RISC-V RV32I CPU model in C++20, built step by step from a single-cycle CPU into a cycle-level five-stage pipeline with branch prediction and caches.
 
-**Status:** early. Labs 0 and 1 are done, and Lab 2 (memory and the bus) is in progress. The CPU doesn't run RISC-V code yet; the first program runs in Lab 7.
+**Status:** early. Labs 0, 1, and 2 are done, and Lab 3 (register file and CPU state) is next. The CPU doesn't run RISC-V code yet; the first program runs in Lab 7.
 
 **Why "xCuteCore":** **Xcute** is a play on execute, the heart of the fetch–decode–execute pipeline, and **Core** because it models a single in-order CPU core. Small, focused, and a little cute.
 
@@ -10,7 +10,7 @@ A RISC-V RV32I CPU model in C++20, built step by step from a single-cycle CPU in
 
 xCuteCore models a small computer: an RV32I CPU and a RAM on a shared bus, with instructions and data in one address space (a Von Neumann machine). The CPU starts unpipelined and takes each instruction through all five stages before starting the next. Once it runs C programs and passes the official `rv32ui` riscv-tests, the next phase is changing to a cycle-level five-stage pipeline with forwarding and stalls. Branch prediction and a cache hierarchy come after that, each measured on a suite of test programs.
 
-The project has one purposes:
+The project has one purpose:
 
 - **Learning.** It follows a 17-lab path, [`docs/labs.md`](docs/labs.md), that teaches computer architecture and modern C++ side by side. Every lab has objectives, tests, and a "done when" check, and each piece is tested before the next one starts.
 
@@ -53,11 +53,15 @@ All project code builds with `-Wall -Wextra -Wpedantic -Wconversion -Wsign-conve
 │   ├── bits.hpp            bits, bit, sign_extend, to_binary_string
 │   ├── device.hpp          Device, the abstract base for anything on the bus
 │   ├── memory.hpp          Memory
+│   ├── memory_fault.hpp    AccessType, MemoryFault
+│   ├── bus.hpp             Bus, the BusValue concept, typed read<T> and write<T>
+│   ├── loader.hpp          load_bytes
+│   ├── hex_dump.hpp        hex_dump
 │   └── version.hpp
-├── src/                    the rvcore library: memory.cpp, version.cpp
+├── src/                    the rvcore library: memory, memory_fault, bus, loader, hex_dump, version
 ├── sim/main.cpp            the rvsim executable (prints its version for now)
 └── tests/
-    ├── unit/               GoogleTest: smoke_test, test_bits, test_memory
+    ├── unit/               GoogleTest: smoke_test, test_bits, test_memory, test_bus, test_loader
     └── programs/lab0/      first.S, the first hand-written RV32I program
 ```
 
@@ -77,46 +81,15 @@ All project code builds with `-Wall -Wextra -Wpedantic -Wconversion -Wsign-conve
 
 ### Work done
 
-**Lab 0: Project setup** (tag `v0.0`)
-- CMake project with three targets: the `rvcore` static library, the `rvsim` simulator, and the `unit_tests` GoogleTest executable, registered with CTest.
-- Warnings as errors through an interface target (`rvsim_options`), so they apply to project code only. The `RVSIM_SANITIZE` option adds ASan and UBSan, with `-fno-sanitize-recover=all` so undefined behavior fails the test.
-- The harness was proven by breaking it on purpose: a failing test, an unused variable, a heap overflow, and a signed overflow each failed the build or the test run.
-- clang-format (Google style, 100 columns), and a `compile_commands.json` link for clangd.
-- Cross toolchain checked: `riscv64-unknown-elf-gcc` 10.2.0 has an `rv32i/ilp32` multilib, and 32-bit libgcc links.
-- `tests/programs/lab0/first.S`, the first RV32I program, assembled and inspected with `objdump` and `readelf` (ELF32, little-endian, RISC-V, entry `0x80000000`). It will be the first program the CPU runs, in Lab 7, and should exit with code 12.
-- `docs/DESIGN.md` started with decisions D1 to D4.
+- **Lab 0: Project setup** (tag `v0.0`): CMake build with the `rvcore` library, the `rvsim` simulator, and GoogleTest unit tests. Warnings are errors, sanitizers are on, and the cross toolchain assembles `first.S`.
+- **Lab 1: Bit toolkit**: the `Word`, `Addr`, and register types, plus `bits`, `bit`, and `sign_extend` for pulling fields out of instructions.
+- **Lab 2: Memory and the bus**: a little-endian `Memory` device, a `Bus` that maps devices and reports faults, typed `read<T>` and `write<T>`, `load_bytes`, and `hex_dump`.
 
-**Lab 1: Bit toolkit**
-- `types.hpp`: `Word` and `Addr` (unsigned 32-bit), `Sword` (signed 32-bit), and `regIndex` (a register number).
-- `bits.hpp`: `bits(value, hi, lo)`, `bit(value, n)`, and `sign_extend(value, width)`, all `constexpr`, `noexcept`, and `[[nodiscard]]`, with preconditions checked by `assert`. Also `to_binary_string` for debugging.
-- Tests: six `static_assert`s checked at compile time, and 15 runtime tests covering every row of the lab's worked-examples table plus the binary string.
-
-**Lab 2: Memory and the bus** (in progress)
-- [x] 2.1 `Device`: an abstract base with a virtual destructor and pure virtual `size()`, `read(offset, width)`, and `write(offset, width, value)`.
-- [x] 2.2 `Memory`: a `Device` backed by a zero-filled `std::vector<std::uint8_t>`, with 1-byte reads and writes.
-- [x] T2.1 `static_assert`s that `Device` is abstract and has a virtual destructor.
-- [x] T2.2 A new memory reads zero everywhere, a byte round-trips, and a write of `0x1FF` stores `0xFF` without touching the next byte.
-- [x] 2.3 Little-endian 2- and 4-byte access in `Memory`, aligned or not
-- [x] 2.4 `AccessType` and `MemoryFault`, with bounds checks that throw
-As of 2026-09-24, the sanitizer build (g++-13) compiles with zero warnings and all 17 tests pass.
+As of 2026-10-02, the sanitizer build (g++-13) compiles with zero warnings and all 51 tests pass.
 
 ### What's left
 
-**Finish Lab 2**
-- [ ] 2.5 `Bus`: `map`, `fetch`, `read`, and `write`; faults carry bus addresses, and overlapping mappings are rejected
-- [ ] 2.6 Typed access: a `BusValue` concept with `read<T>` and `write<T>`
-- [ ] 2.7 `load_bytes`, which places bytes on the bus
-- [ ] 2.8 `hex_dump`
-- [ ] Tests T2.3 to T2.8
-
-**Loose ends in Lab 1**
-- T1.2 asks for more than the worked-examples table: bits 0 and 31 of `0x80000001`, `bits` with `hi` equal to `lo`, and `sign_extend` at widths 1, 5, 8, 12, 13, 16, 20, 21, and 32, using the largest positive and the most negative value at each. The tests cover the table rows so far.
-- T1.3, the optional death test, is checked off in `labs.md`, but `test_bits.cpp` has no death test.
-- Objective 1.1 puts the type aliases in the `rvsim` namespace, but `types.hpp` declares them at global scope. `regIndex` also breaks D4's PascalCase rule for types; the lab calls it `RegIndex`.
-
-**Remaining labs**
-
-Sizes (S, M, L) are relative effort.
+Lab 3 is next. Sizes (S, M, L) are relative effort.
 
 | Lab | What gets built | Done when |
 |---|---|---|

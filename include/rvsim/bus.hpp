@@ -2,6 +2,7 @@
 #define BUS_HPP
 
 #include <cassert>
+#include <format>
 #include <vector>
 #include <memory>
 #include <stdexcept>
@@ -11,6 +12,12 @@
 #include "rvsim/types.hpp"
 
 namespace rvsim{
+
+// defining the width the bus can work with
+template <typename T>
+concept BusValue = std::same_as<T, std::uint8_t> ||
+                   std::same_as<T, std::uint16_t> ||
+                   std::same_as<T, std::uint32_t>;
 
 
 class Bus {
@@ -45,6 +52,18 @@ class Bus {
         Bus::FoundDevice lookup(Addr address, std::size_t width, AccessType access);
         //used to make sure new device wont overlap
         bool overlaps(Addr base, std::size_t size) const;
+
+    public:
+        // Creating templates for different widths
+        template <BusValue T>
+        T read(Addr address) {
+            return static_cast<T>(read(address, sizeof(T)));
+        }
+    
+        template <BusValue T>
+        void write(Addr address, T data) {
+            write(address, sizeof(T), data);
+        }
 };
 }
 

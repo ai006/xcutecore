@@ -6,12 +6,25 @@ namespace rvsim {
 void
 Bus::map(Addr base, std::unique_ptr<Device> _device) {
 
+    if (_device == nullptr)
+        throw std::invalid_argument(std::format("Bus::map: null device at 0x{:08x}", base));
+
     //lookup to see if the area is already mapped
     std::size_t size = _device->size();
     if (size == 0)
-        throw std::runtime_error("Device size cannot be 0");
+        throw std::invalid_argument(std::format("Bus::map: empty device at 0x{:08x}", base));
+    
+    // The device's last byte, base + size - 1, must be at most 0xFFFFFFFF: 16 bytes at
+    // 0xFFFFFFF0 end exactly at the top and are fine, 16 bytes at 0xFFFFFFF8 are not.
+    // Computed in 64 bits, because base + size can wrap around to a small number in 32 bits.
+    std::uint64_t addressSpaceSize = std::uint64_t{1} << 32;
+    if (std::uint64_t{base} + size > addressSpaceSize)
+        throw std::invalid_argument(std::format(
+            "Bus::map: {} bytes at 0x{:08x} run past 0xffffffff", size, base));
+
     if (overlaps(base, size))
-        throw std::runtime_error("Address range already mapped");
+        throw std::invalid_argument(std::format(
+            "Bus::map: {} bytes at 0x{:08x} overlap a mapped device", size, base));
 
     MappedDevices deviceToMap;
     deviceToMap.baseAddress = base;
@@ -24,19 +37,19 @@ Bus::fetch(Addr address) {
 
     std::size_t byte = 4;
     FoundDevice foundDevice = lookup(address, byte, AccessType::Fetch);
-    return foundDevice.device.read(address, byte);
+    return foundDevice.device.read(foundDevice.deviceOffset, byte);
 }
 
 Word
 Bus::read(Addr address, std::size_t width) {
     FoundDevice foundDevice = lookup(address, width, AccessType::Read);
-    return foundDevice.device.read(address, width);
+    return foundDevice.device.read(foundDevice.deviceOffset, width);
 }
 
 void
 Bus::write(Addr address, std::size_t width, Word data) {
     FoundDevice foundDevice = lookup(address, width, AccessType::Write);
-    foundDevice.device.write(address, width, data);
+    foundDevice.device.write(foundDevice.deviceOffset, width, data);
 }
 
 Bus::FoundDevice
@@ -45,7 +58,7 @@ Bus::lookup(Addr address, std::size_t width, AccessType access) {
     //make sure we are only reading the allowed number of bytes
     assert(width == 1 || width == 2 || width == 4);
 
-    for(const auto& mapping : listOfMappedDevices) {
+    for(const MappedDevices& mapping : listOfMappedDevices) {
 
         /** check whether the address is in bounds
             in one of the devices */
@@ -59,7 +72,7 @@ Bus::lookup(Addr address, std::size_t width, AccessType access) {
         if (offset + width > mapping.device->size())
             throw MemoryFault(address, width, access);
 
-        return {mapping.baseAddress, *mapping.device};
+        return FoundDevice{offset, *mapping.device};
     }
 
     throw MemoryFault(address, width, access);
@@ -67,15 +80,14 @@ Bus::lookup(Addr address, std::size_t width, AccessType access) {
 
 bool
 Bus::overlaps(Addr base, std::size_t size) const{
-    std::uint64_t newStart = base;
-    std::uint64_t newEnd   = static_cast<std::uint64_t>(base) + size - 1;
+    const std::uint64_t newStart = base;
+    const std::uint64_t newEnd = newStart + size;
 
-    for (const auto& mapping : listOfMappedDevices) {
-        std::uint64_t oldStart = mapping.baseAddress;
-        std::uint64_t oldEnd   = oldStart + mapping.device->size() - 1;
+    for (const MappedDevices& mapping : listOfMappedDevices) {
+        const std::uint64_t oldStart = mapping.baseAddress;
+        const std::uint64_t oldEnd = oldStart + mapping.device->size();
 
-        // overlap unless one range ends before the other starts
-        if (newStart <= oldEnd && oldStart <= newEnd)
+        if (newStart < oldEnd && oldStart < newEnd)
             return true;
     }
     return false;
