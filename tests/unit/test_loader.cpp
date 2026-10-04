@@ -20,6 +20,9 @@ using rvsim::AccessType;
 using rvsim::Bus;
 using rvsim::Memory;
 using rvsim::MemoryFault;
+using rvsim::Addr;
+using rvsim::Word;
+
 
 namespace {
 

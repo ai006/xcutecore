@@ -13,11 +13,11 @@
 #include "rvsim/types.hpp"
 
 using rvsim::AccessType;
-// using rvsim::Addr;
+using rvsim::Addr;
 using rvsim::Bus;
 using rvsim::Memory;
 using rvsim::MemoryFault;
-// using rvsim::Word;
+using rvsim::Word;
 
 // 2.6: BusValue accepts exactly std::uint8_t, std::uint16_t, and std::uint32_t.
 static_assert(rvsim::BusValue<std::uint8_t>);

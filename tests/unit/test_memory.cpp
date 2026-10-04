@@ -5,6 +5,9 @@
 #include "rvsim/device.hpp"
 #include "rvsim/memory.hpp"
 
+using rvsim::Addr;
+using rvsim::Word;
+
 //check if Device is an abstract class
 static_assert(std::is_abstract_v<rvsim::Device> == true);
 //check if Device has a virtual destructor

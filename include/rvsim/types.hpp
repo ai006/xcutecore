@@ -3,6 +3,8 @@
 
 #include <cstdint>
 
+namespace rvsim{
+    
 //32-bit unsigned integer
 using Word = uint32_t;
 
@@ -14,5 +16,7 @@ using Addr = uint32_t;
 
 //a register number 0 to 31
 using regIndex = uint8_t;
+
+}
 
 #endif
