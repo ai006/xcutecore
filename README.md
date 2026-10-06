@@ -2,7 +2,7 @@
 
 A RISC-V RV32I CPU model in C++20, built step by step from a single-cycle CPU into a cycle-level five-stage pipeline with branch prediction and caches.
 
-**Status:** early. Labs 0, 1, and 2 are done, and Lab 3 (register file and CPU state) is next. The CPU doesn't run RISC-V code yet; the first program runs in Lab 7.
+**Status:** early. Labs 0 to 3 are done, which completes the architectural state (Phase 1), and Lab 4 (instruction fields and immediates) is next. The CPU doesn't run RISC-V code yet; the first program runs in Lab 7.
 
 **Why "xCuteCore":** **Xcute** is a play on execute, and **Core** because it models a single in-order CPU core. Small, focused, and a little cute.
 
@@ -57,11 +57,16 @@ All project code builds with `-Wall -Wextra -Wpedantic -Wconversion -Wsign-conve
 │   ├── bus.hpp             Bus, the BusValue concept, typed read<T> and write<T>
 │   ├── loader.hpp          load_bytes
 │   ├── hex_dump.hpp        hex_dump
+│   ├── register_file.hpp   RegisterFile, abi_name
+│   ├── arch_state.hpp      ArchState: the pc and the registers, printed as a table
+│   ├── commit_record.hpp   RegWrite, MemWrite, CommitRecord
 │   └── version.hpp
-├── src/                    the rvcore library: memory, memory_fault, bus, loader, hex_dump, version
+├── src/                    the rvcore library: memory, memory_fault, bus, loader, hex_dump,
+│                           register_file, arch_state, version
 ├── sim/main.cpp            the rvsim executable (prints its version for now)
 └── tests/
-    ├── unit/               GoogleTest: smoke_test, test_bits, test_memory, test_bus, test_loader
+    ├── unit/               GoogleTest: smoke_test, test_bits, test_memory, test_bus, test_loader,
+    │                       register_file_test, arch_state_test, commit_record_test
     └── programs/lab0/      first.S, the first hand-written RV32I program
 ```
 
@@ -70,7 +75,7 @@ All project code builds with `-Wall -Wextra -Wpedantic -Wconversion -Wsign-conve
 | Phase | Labs | Milestone | Status |
 |---|---|---|---|
 | 0. Setup | 0 | Build, unit tests, and cross toolchain work | Done, tagged `v0.0` |
-| 1. Architectural state | 1, 2, 3 | Bit helpers, memory and bus, registers | In progress |
+| 1. Architectural state | 1, 2, 3 | Bit helpers, memory and bus, registers | Done |
 | 2. Decode | 4, 5 | Every RV32I instruction decodes and disassembles | Not started |
 | 3. Execute | 6 | Every instruction's behavior is unit tested | Not started |
 | 4. Unpipelined CPU | 7, 8, 9 | Runs C programs and the official rv32ui tests | Not started (tag `v0.1`) |
@@ -84,16 +89,16 @@ All project code builds with `-Wall -Wextra -Wpedantic -Wconversion -Wsign-conve
 - **Lab 0: Project setup** (tag `v0.0`): CMake build with the `rvcore` library, the `rvsim` simulator, and GoogleTest unit tests. Warnings are errors, sanitizers are on, and the cross toolchain assembles `first.S`.
 - **Lab 1: Bit toolkit**: the `Word`, `Addr`, and register types, plus `bits`, `bit`, and `sign_extend` for pulling fields out of instructions.
 - **Lab 2: Memory and the bus**: a little-endian `Memory` device, a `Bus` that maps devices and reports faults, typed `read<T>` and `write<T>`, `load_bytes`, and `hex_dump`.
+- **Lab 3: Register file and CPU state**: a `RegisterFile` whose x0 always reads 0, ABI register names, an `ArchState` (the pc and the registers) that compares with `==` and prints all 32 registers as a table, and the `CommitRecord` that each retired instruction will produce.
 
-As of 2026-10-02, the sanitizer build (g++-13) compiles with zero warnings and all 51 tests pass.
+As of 2026-10-05, the sanitizer build (g++-13) compiles with zero warnings and all 75 tests pass.
 
 ### What's left
 
-Lab 3 is next. Sizes (S, M, L) are relative effort.
+Lab 4 is next. Sizes (S, M, L) are relative effort.
 
 | Lab | What gets built | Done when |
 |---|---|---|
-| 3. Register file and CPU state (S) | `RegisterFile` with x0 fixed at 0, ABI names, `ArchState`, `CommitRecord` | A state dump prints all 32 registers as a readable table |
 | 4. Instruction fields and immediates (M) | `Opcode` enum, field extractors, I/S/B/U/J immediate builders, test vectors checked against objdump | Every vector decodes to the right fields |
 | 5. Instruction classes and decoder (L) | `Instruction` class hierarchy (with templates for loads, stores, and branches), a `decode()` that never throws, objdump-style disassembly | Every vector decodes to the right class and prints correctly |
 | 6. Execution semantics (L) | ALU, plus execute, memory, and write back behavior for every instruction, including misaligned-target faults | Every RV32I instruction has at least one behavior test |

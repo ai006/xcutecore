@@ -767,7 +767,7 @@ Bus: finds the device that holds addr, subtracts that device's base
 | `tests/unit/commit_record_test.cpp` | T3.4 | |
 
 **Objectives**
-- [ ] 3.1 **`RegisterFile`**: a class holding 32 registers of type `Word`, all 0 when constructed. Public members:
+- [X] 3.1 **`RegisterFile`**: a class holding 32 registers of type `Word`, all 0 when constructed. Public members:
 
   | Member | Takes | Returns | Does |
   |---|---|---|---|
@@ -776,8 +776,8 @@ Bus: finds the device that holds addr, subtracts that device's base
   | `operator==` | another `RegisterFile` | `bool` | Defaulted: equal when all 32 registers match. 3.3 uses it. |
 
   An index above 31 is a bug in your simulator, so `assert` it. Don't give the class an `operator[]` that returns a reference (`hints.md` 3.1 says why). Example: after writing 5 to x0 and 12 to x10, x0 reads 0 and x10 reads 12.
-- [ ] 3.2 **ABI names**: a free function `abi_name(index)` that takes a `RegIndex` and returns its ABI name as a `std::string_view`. In order from x0 to x31: `zero ra sp gp tp t0 t1 t2 s0 s1 a0 a1 a2 a3 a4 a5 a6 a7 s2 s3 s4 s5 s6 s7 s8 s9 s10 s11 t3 t4 t5 t6`. Examples: 10 gives `a0`, 2 gives `sp`, and 8 gives `s0` (x8 is also called `fp`, but objdump prints `s0`). The 3.3 printout and Lab 5's disassembler use it.
-- [ ] 3.3 **`ArchState`**: a struct with two members, `Addr pc` and `RegisterFile regs`, both starting at 0. Memory is not part of it: memory lives on the bus, and tests check it there.
+- [X] 3.2 **ABI names**: a free function `abi_name(index)` that takes a `RegIndex` and returns its ABI name as a `std::string_view`. In order from x0 to x31: `zero ra sp gp tp t0 t1 t2 s0 s1 a0 a1 a2 a3 a4 a5 a6 a7 s2 s3 s4 s5 s6 s7 s8 s9 s10 s11 t3 t4 t5 t6`. Examples: 10 gives `a0`, 2 gives `sp`, and 8 gives `s0` (x8 is also called `fp`, but objdump prints `s0`). The 3.3 printout and Lab 5's disassembler use it.
+- [X] 3.3 **`ArchState`**: a struct with two members, `Addr pc` and `RegisterFile regs`, both starting at 0. Memory is not part of it: memory lives on the bus, and tests check it there.
   - A defaulted `operator==`: two states are equal only if the pc and every register match.
   - `operator<<(std::ostream&, const ArchState&)` prints the pc, then all 32 registers, four per line, each with its number, ABI name, and value as 8 hex digits. Spacing is up to you. The first lines for a state with pc 0x80000008, sp 0x800FFFF0, and a2 = 12:
 
@@ -788,7 +788,7 @@ Bus: finds the device that holds addr, subtracts that device's base
   x8  s0   00000000   x9  s1   00000000   x10 a0   00000000   x11 a1   00000000
   x12 a2   0000000c   x13 a3   00000000   x14 a4   00000000   x15 a5   00000000
   ```
-- [ ] 3.4 **`CommitRecord`**: one retired instruction, as plain values. Three structs, each with a defaulted `operator==`, because Phase 5 compares records:
+- [X] 3.4 **`CommitRecord`**: one retired instruction, as plain values. Three structs, each with a defaulted `operator==`, because Phase 5 compares records:
   - `RegWrite`: `RegIndex rd` and `Word value`.
   - `MemWrite`: `Addr addr`, `std::size_t width`, and `Word value`. For a store, `value` holds only the bytes written, so an SB of 0x1234 records 0x34.
   - `CommitRecord`: `Addr pc`, `Word word` (the raw instruction), `std::optional<RegWrite> reg_write`, and `std::optional<MemWrite> mem_write`. Most instructions fill one of the two optionals, or neither.
@@ -798,10 +798,10 @@ Bus: finds the device that holds addr, subtracts that device's base
   - `sw a2, -4(sp)` at 0x80000010 with sp = 0x800FFFF0 and a2 = 12: pc 0x80000010, word 0xFEC12E23, no `reg_write`, and a `mem_write` of 12, 4 bytes wide, to 0x800FFFEC.
 
 **Tests**
-- [ ] T3.1 A new register file reads 0 everywhere. Writes to x0 are ignored; x1 through x31 round-trip.
-- [ ] T3.2 ABI names: x0 `zero`, x1 `ra`, x2 `sp`, x8 `s0`, x10 `a0`, x31 `t6`.
-- [ ] T3.3 States that differ only in the pc, or only in one register, compare unequal; identical states compare equal.
-- [ ] T3.4 Two `CommitRecord`s that differ only in the width of their memory write compare unequal, and so do two that differ only in whether they have a register write.
+- [X] T3.1 A new register file reads 0 everywhere. Writes to x0 are ignored; x1 through x31 round-trip.
+- [X] T3.2 ABI names: x0 `zero`, x1 `ra`, x2 `sp`, x8 `s0`, x10 `a0`, x31 `t6`.
+- [X] T3.3 States that differ only in the pc, or only in one register, compare unequal; identical states compare equal.
+- [X] T3.4 Two `CommitRecord`s that differ only in the width of their memory write compare unequal, and so do two that differ only in whether they have a register write.
 
 **Done when:** tests pass and a state dump prints all 32 registers as a readable table.
 

@@ -8,7 +8,7 @@
 
 #include "rvsim/types.hpp"
 
-namespace rvsim{
+namespace rvsim {
 
 std::string_view abi_name(regIndex index);
 
