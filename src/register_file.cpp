@@ -4,7 +4,7 @@
 
 namespace rvsim {
 
-std::string_view abi_name(regIndex index) {
+std::string_view abi_name(RegIndex index) {
 
     assert(index < RegisterFile::numRegisters);
     static constexpr std::array<std::string_view, RegisterFile::numRegisters> regNames{
@@ -22,7 +22,7 @@ std::string_view abi_name(regIndex index) {
 
 
 void
-RegisterFile::write(regIndex index, Word value) {
+RegisterFile::write(RegIndex index, Word value) {
 
     //make not trying to writes are not to zero
     if(index == 0)
@@ -36,7 +36,7 @@ RegisterFile::write(regIndex index, Word value) {
 }
 
 Word
-RegisterFile::read(regIndex index) const {
+RegisterFile::read(RegIndex index) const {
     assert(index < numRegisters);
     //read from register
     return registers[index];

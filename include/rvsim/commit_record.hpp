@@ -10,7 +10,7 @@ namespace rvsim {
 // struct to hold which register changed and its value
 // "A register changed": which register (rd) and its new value.
 struct RegWrite {
-    regIndex rd;
+    RegIndex rd;
     Word value;
     bool operator == (const RegWrite& reg_Write) const = default;
 };

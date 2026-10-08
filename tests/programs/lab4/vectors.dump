@@ -1,0 +1,73 @@
+
+build/lab4/vectors.o:     file format elf32-littleriscv
+
+
+Disassembly of section .text:
+
+00000000 <_start>:
+   0:	12345737          	lui	a4,0x12345
+   4:	00000037          	lui	zero,0x0
+   8:	00001fb7          	lui	t6,0x1
+   c:	fffff537          	lui	a0,0xfffff
+  10:	7ffff437          	lui	s0,0x7ffff
+  14:	800004b7          	lui	s1,0x80000
+  18:	00000297          	auipc	t0,0x0
+  1c:	aaaaaf97          	auipc	t6,0xaaaaa
+  20:	55555097          	auipc	ra,0x55555
+  24:	010000ef          	jal	ra,34 <_start+0x34>
+  28:	ff1ff06f          	jal	zero,18 <_start+0x18>
+  2c:	00000fef          	jal	t6,2c <_start+0x2c>
+  30:	0020056f          	jal	a0,32 <_start+0x32>
+  34:	7ffff06f          	jal	zero,100032 <_start+0x100032>
+  38:	800000ef          	jal	ra,fff00038 <_start+0xfff00038>
+  3c:	2abaa96f          	jal	s2,aaae6 <_start+0xaaae6>
+  40:	d54559ef          	jal	s3,fff55594 <_start+0xfff55594>
+  44:	00b50463          	beq	a0,a1,4c <_start+0x4c>
+  48:	fe051ce3          	bne	a0,zero,40 <_start+0x40>
+  4c:	01f00063          	beq	zero,t6,4c <_start+0x4c>
+  50:	000f9163          	bne	t6,zero,52 <_start+0x52>
+  54:	7fdf4fe3          	blt	t5,t4,1052 <_start+0x1052>
+  58:	815a5063          	bge	s4,s5,fffff058 <_start+0xfffff058>
+  5c:	2ad665e3          	bltu	a2,a3,b06 <_start+0xb06>
+  60:	d4f77a63          	bgeu	a4,a5,fffff5b4 <_start+0xfffff5b4>
+  64:	fec12e23          	sw	a2,-4(sp)
+  68:	01f00023          	sb	t6,0(zero) # 0 <_start>
+  6c:	000f9423          	sh	zero,8(t6) # aaaaa024 <_start+0xaaaaa024>
+  70:	7e112fa3          	sw	ra,2047(sp)
+  74:	816b8023          	sb	s6,-2048(s7)
+  78:	558c9aa3          	sh	s8,1365(s9)
+  7c:	abada523          	sw	s10,-1366(s11)
+  80:	00058503          	lb	a0,0(a1)
+  84:	00401f83          	lh	t6,4(zero) # 4 <_start+0x4>
+  88:	ffcfa003          	lw	zero,-4(t6)
+  8c:	7ff3c303          	lbu	t1,2047(t2)
+  90:	80045e03          	lhu	t3,-2048(s0) # 7fffe800 <_start+0x7fffe800>
+  94:	00008067          	jalr	zero,0(ra) # 55555020 <_start+0x55555020>
+  98:	800f80e7          	jalr	ra,-2048(t6)
+  9c:	7ff00fe7          	jalr	t6,2047(zero) # 0 <_start>
+  a0:	fff00513          	addi	a0,zero,-1
+  a4:	00000013          	addi	zero,zero,0
+  a8:	01010113          	addi	sp,sp,16
+  ac:	7ff62593          	slti	a1,a2,2047
+  b0:	80073693          	sltiu	a3,a4,-2048
+  b4:	ffffcf93          	xori	t6,t6,-1
+  b8:	5554e413          	ori	s0,s1,1365
+  bc:	aaa87793          	andi	a5,a6,-1366
+  c0:	01f01f93          	slli	t6,zero,0x1f
+  c4:	0015d513          	srli	a0,a1,0x1
+  c8:	41f6d613          	srai	a2,a3,0x1f
+  cc:	400fd013          	srai	zero,t6,0x0
+  d0:	00b50633          	add	a2,a0,a1
+  d4:	40a586b3          	sub	a3,a1,a0
+  d8:	01f01fb3          	sll	t6,zero,t6
+  dc:	000fa033          	slt	zero,t6,zero
+  e0:	0124b433          	sltu	s0,s1,s2
+  e4:	0107c733          	xor	a4,a5,a6
+  e8:	007352b3          	srl	t0,t1,t2
+  ec:	41eede33          	sra	t3,t4,t5
+  f0:	001ded33          	or	s10,s11,ra
+  f4:	002271b3          	and	gp,tp,sp
+  f8:	0ff0000f          	fence	iorw,iorw
+  fc:	0210000f          	fence	r,w
+ 100:	00000073          	ecall
+ 104:	00100073          	ebreak

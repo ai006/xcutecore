@@ -2,7 +2,7 @@
 
 You are building a small computer in C++: a RISC-V RV32I CPU and a memory, connected by a bus, with instructions and data sharing one address space (Von Neumann). The CPU starts unpipelined: each instruction goes through fetch, decode, execute, memory, and write back before the next one starts. Once it runs real programs and passes the official tests, you turn it into a cycle-level 5-stage pipeline, then add branch prediction and caches.
 
-Every lab lists objectives, tests, a "done when" check, and the C++ it exercises. Lab 0 is the exception: a step-by-step setup walkthrough with code. Objectives are numbered by lab (2.3 is Lab 2, objective 3), and the hints use the same numbers. Each objective says what to build, what goes in, what comes out, and gives an example; objectives that build a class list the members it needs. The hints cover how to build it. Lab 2 has its own walkthrough, `hints_lab2.md`, and later labs will get one each as they are rewritten; `hints.md` keeps the general notes and the hints for labs that don't have their own file yet. Try each objective before opening its hint. Names of functions, classes, files, and flags are suggestions: rename them freely, but keep the inputs and outputs.
+Every lab lists objectives, tests, a "done when" check, and the C++ it exercises. Lab 0 is the exception: a step-by-step setup walkthrough with code. Objectives are numbered by lab (2.3 is Lab 2, objective 3), and the hints use the same numbers. Each objective says what to build, what goes in, what comes out, and gives an example; objectives that build a class list the members it needs. The hints cover how to build it. Labs 2 and 4 have their own walkthroughs, `hints_lab2.md` and `hints_lab4.md`, and more labs will get one as they are rewritten; `hints.md` keeps the general notes and the hints for labs that don't have their own file yet. Try each objective before opening its hint. Names of functions, classes, files, and flags are suggestions: rename them freely, but keep the inputs and outputs.
 
 ## Ground rules
 
@@ -73,7 +73,8 @@ Every file the core labs (0 to 16) leave in the repository, and the lab that cre
 │   ├── labs.md
 │   ├── hints.md                       general notes, plus labs without their own file
 │   ├── hints_lab2.md                  Lab 2
-│   └── hints_lab3.md ...              one per lab as they are written
+│   ├── hints_lab4.md                  Lab 4
+│   └── hints_lab5.md ...              one per lab as they are written
 ├── include/
 │   └── rvsim/
 │       ├── version.hpp                Lab 0
@@ -150,6 +151,7 @@ Every file the core labs (0 to 16) leave in the repository, and the lab that cre
 │   │   ├── arch_state_test.cpp        Lab 3
 │   │   ├── commit_record_test.cpp     Lab 3
 │   │   ├── fields_test.cpp            Lab 4
+│   │   ├── rv32i_vectors.hpp          Labs 4, 5 (the 4.5 test vectors as a table)
 │   │   ├── decode_test.cpp            Lab 5
 │   │   ├── alu_test.cpp               Lab 6
 │   │   ├── execute_test.cpp           Lab 6
@@ -815,35 +817,120 @@ Bus: finds the device that holds addr, subtracts that device's base
 
 **Goal:** pull every field out of a raw instruction and build all five immediate types correctly.
 
-**Where this fits:** these are the decoder's tools. Lab 5's `decode()` calls them on every fetched word, and the instruction objects keep the results. Every function here takes the whole 32-bit instruction as a `Word`. Register fields come back as `RegIndex`; everything else comes back as a `Word`.
+**Where this fits:** every instruction reaches the CPU as one 32-bit number. In Lab 7, `Bus::fetch` (2.5) hands the CPU a `Word`, and nothing in that number is labeled. This lab writes the small functions that cut it into named pieces: which kind of instruction it is (the opcode), which registers it uses (rd, rs1, rs2), which variant it is (funct3 and funct7), and the constant built into it (the immediate). Lab 5's `decode()` calls them on every fetched word and keeps the results in an instruction object. After that, nothing in the CPU looks at raw bits again.
+
+```
+add a2, a0, a1 is the Word 0x00B50633:
+
+ bit   31     25 24   20 19   15 14    12 11    7 6       0
+      ┌─────────┬───────┬───────┬────────┬───────┬─────────┐
+      │ 0000000 │ 01011 │ 01010 │  000   │ 01100 │ 0110011 │   R-type
+      └─────────┴───────┴───────┴────────┴───────┴─────────┘
+         funct7    rs2     rs1    funct3     rd     opcode
+          0x00      11      10      0        12      0x33
+                   (a1)    (a0)             (a2)     (OP)
+```
+
+That is one of the six formats. 4.1 has you draw the other five, which differ mostly in where they keep the immediate.
+
+How it ties to earlier pieces:
+- **Lab 1:** each function here is a call or two to your bit helpers. `bits` cuts out a field, and `sign_extend` turns an immediate into a 32-bit value. T1.2 tested widths 13 and 21 because those are the widths of the B and J immediates.
+- **Lab 3:** register fields come back as `RegIndex`, the type `RegisterFile::read` and `write` take (3.1), and `abi_name` (3.2) turns them into the names objdump prints.
+- **Later:** Lab 5's `decode()` switches on the opcode, then funct3 and funct7, and stores the registers and the immediate. Lab 6 adds the immediate to a register value (ADDI's result, or the address of a load or store) or to the pc (the target of a branch or a JAL). Lab 5's tests reuse this lab's test vectors.
+
+**Rules for every function**
+- It takes the whole 32-bit instruction as a `Word`, never a field that was already cut out.
+- Register fields (rd, rs1, rs2) come back as `RegIndex`. Everything else, immediates included, comes back as a `Word`.
+- It checks nothing. It cuts the same bits out of any word, even a field the instruction's format doesn't have (an ADDI has no rs2, but `rs2` still returns bits 24 to 20), and even a word that isn't an instruction. Deciding which fields matter is `decode()`'s job in Lab 5.
+- It's `constexpr`, `noexcept`, and `[[nodiscard]]`, like the Lab 1 helpers, so it lives in a header.
+
+**Hints:** `hints_lab4.md` walks through every objective with scaffolds and gotchas.
+
+**Files:** add the test file to `unit_tests` in `tests/CMakeLists.txt`. There is no `.cpp` this time: `constexpr` functions live in headers, and headers don't need listing.
+
+| File | What goes in it | Objectives |
+|---|---|---|
+| `include/rvsim/fields.hpp` | `Opcode`, the field extractors, the immediate builders (header only) | 4.2, 4.3, 4.4 |
+| `tests/programs/lab4/vectors.S` | every RV32I instruction, with chosen immediates | 4.5 |
+| `tests/unit/rv32i_vectors.hpp` | the disassembled vectors as a table, shared with Lab 5's tests | 4.5 |
+| `tests/unit/fields_test.cpp` | T4.1 to T4.3 | |
 
 **Objectives**
-- [ ] 4.1 Read the RV32I chapter and the instruction listing table in the unprivileged spec. Draw the six formats (R, I, S, B, U, J) by hand.
-- [ ] 4.2 **`enum class Opcode`** with 11 enumerators (LUI, AUIPC, JAL, JALR, BRANCH, LOAD, STORE, OP-IMM, OP, MISC-MEM, SYSTEM), each set to its 7-bit opcode value from the spec.
-- [ ] 4.3 **Field extractors** `opcode`, `rd`, `rs1`, `rs2`, `funct3`, `funct7`. Example: for 0x00B50633 (`add a2, a0, a1`) they return 0x33, 12, 10, 11, 0, and 0. For 0x40A586B3 (`sub a3, a1, a0`), `funct7` returns 0x20.
-- [ ] 4.4 **Immediate builders** `imm_i`, `imm_s`, `imm_b`, `imm_u`, `imm_j`. Each returns the immediate already sign-extended to 32 bits. `imm_u` returns the value in its final position, with the low 12 bits zero. `imm_b` and `imm_j` return the byte offset, so bit 0 is always 0. See the examples below.
-- [ ] 4.5 **Test vectors**: one assembly file, `tests/programs/lab4/vectors.S`, containing every RV32I instruction with chosen immediates (zero, positive, negative, and both range limits). Assemble it, run `objdump -d -M no-aliases`, and turn the output into a table of word, mnemonic, fields, and immediate in your test file.
+- [X] 4.1 **Read the spec and draw the six formats.** No code. In the RV32I chapter of the unprivileged spec, read "Base Instruction Formats" and "Immediate Encoding Variants". Then find the RV32I part of the instruction listing table near the end of the spec ("RV32/64G Instruction Set Listings"). Draw R, I, S, B, U, and J by hand, like the `add` diagram above: for each format, every field with its bit positions, and for each piece of the immediate, which immediate bits it holds. Example: in I-type, instruction bits 31 to 20 hold immediate bits 11 to 0, in order. Your drawing is the reference for 4.3 and 4.4.
+- [X] 4.2 **`enum class Opcode`**: create an enum class with 11 enumerators, one per RV32I opcode, each set to its 7-bit value from the listing table. Give it an unsigned underlying type; `Word` matches what `opcode` returns in 4.3. Use the spec's names, with an underscore where the spec has a hyphen, since a C++ name can't contain one:
 
-**Immediate examples** (all from the cross assembler)
+  | Enumerator | Format | Instructions that use it |
+  |---|---|---|
+  | `LUI` | U | LUI |
+  | `AUIPC` | U | AUIPC |
+  | `JAL` | J | JAL |
+  | `JALR` | I | JALR |
+  | `BRANCH` | B | BEQ, BNE, BLT, BGE, BLTU, BGEU |
+  | `LOAD` | I | LB, LH, LW, LBU, LHU |
+  | `STORE` | S | SB, SH, SW |
+  | `OP_IMM` | I | ADDI, SLTI, SLTIU, XORI, ORI, ANDI, SLLI, SRLI, SRAI |
+  | `OP` | R | ADD, SUB, SLL, SLT, SLTU, XOR, SRL, SRA, OR, AND |
+  | `MISC_MEM` | I | FENCE |
+  | `SYSTEM` | I | ECALL, EBREAK |
 
-| Instruction | Word | Builder | Returns |
-|---|---|---|---|
-| `addi a0, zero, -1` | 0xFFF00513 | `imm_i` | 0xFFFFFFFF (-1) |
-| `sw a2, -4(sp)` | 0xFEC12E23 | `imm_s` | 0xFFFFFFFC (-4) |
-| `beq a0, a1, +8` | 0x00B50463 | `imm_b` | 8 |
-| `bne a0, zero, -8` | 0xFE051CE3 | `imm_b` | 0xFFFFFFF8 (-8) |
-| `lui a4, 0x12345` | 0x12345737 | `imm_u` | 0x12345000 |
-| `jal ra, +16` | 0x010000EF | `imm_j` | 16 |
-| `jal zero, -16` | 0xFF1FF06F | `imm_j` | 0xFFFFFFF0 (-16) |
+  Together they cover all 40 RV32I instructions. Examples: `OP` is 0x33 (binary 0110011), the opcode of `add`, and `OP_IMM` is 0x13, the opcode of `addi`. Every value ends in binary 11.
+- [X] 4.3 **Field extractors**: create six free functions. Each takes the whole instruction as a `Word` and returns one field, moved down so its lowest bit is bit 0:
+
+  | Function | Instruction bits | Returns |
+  |---|---|---|
+  | `opcode(word)` | 6 to 0 | `Word` |
+  | `rd(word)` | 11 to 7 | `RegIndex` |
+  | `funct3(word)` | 14 to 12 | `Word` |
+  | `rs1(word)` | 19 to 15 | `RegIndex` |
+  | `rs2(word)` | 24 to 20 | `RegIndex` |
+  | `funct7(word)` | 31 to 25 | `Word` |
+
+  `opcode` returns the raw 7 bits as a `Word`, not an `Opcode`: not every 7-bit value is an RV32I opcode, and telling them apart is Lab 5's job. Examples: for 0x00B50633 (`add a2, a0, a1`) they return 0x33, 12, 0, 10, 11, and 0, in table order. For 0x40A586B3 (`sub a3, a1, a0`), `funct7` returns 0x20. That one bit, bit 30, is all that separates a SUB from an ADD of the same registers; Lab 1's `bit` example checked it. For 0xFFF00513 (`addi a0, zero, -1`), `rs2` returns 31 and `funct7` returns 0x7F: those bits hold the immediate, but the extractors don't know that.
+- [X] 4.4 **Immediate builders**: create five free functions, one per format that has an immediate. Each takes the whole instruction as a `Word` and returns the immediate as a `Word`, already sign-extended to 32 bits, so -1 comes back as 0xFFFFFFFF:
+
+  | Function | Format | Used by | Returns | Range |
+  |---|---|---|---|---|
+  | `imm_i(word)` | I | JALR, loads, OP-IMM | the 12-bit immediate, sign-extended | -2048 to 2047 |
+  | `imm_s(word)` | S | stores | the 12-bit immediate, put together from two pieces, sign-extended | -2048 to 2047 |
+  | `imm_b(word)` | B | branches | the byte offset from the branch's own pc, sign-extended | -4096 to 4094, always even |
+  | `imm_u(word)` | U | LUI, AUIPC | the upper 20 bits in place, with the low 12 bits zero | multiples of 0x1000 |
+  | `imm_j(word)` | J | JAL | the byte offset from the jal's own pc, sign-extended | -1048576 to 1048574, always even |
+
+  `imm_u` returns the value in its final position: `lui a4, 0x12345` gives 0x12345000, not 0x12345. Branch and jump offsets are always even, so B and J instructions don't store bit 0 of the immediate, and `imm_b` and `imm_j` put a 0 there. FENCE, ECALL, and EBREAK use the I-type layout too, so `imm_i` works on them: ECALL gives 0 and EBREAK gives 1. The table below has worked examples.
+- [X] 4.5 **Test vectors**: write one assembly file, `tests/programs/lab4/vectors.S`, that uses all 40 RV32I instructions at least once (the table in 4.2). Choose immediates that hit zero, small positive, small negative, and both range limits of every immediate type, and put x0 and x31 in every register field somewhere. Assemble it with the cross toolchain and disassemble it with `objdump -d -M no-aliases` (`hints_lab4.md` Part 5 has the commands). Then copy the output into `tests/unit/rv32i_vectors.hpp` as a table with one row per instruction: its address, its word, the disassembly text, its format, its opcode and fields, and its immediate. It's a header so that Lab 5's tests can include the same table (T5.1, T5.3).
+
+  Example: the objdump line `10:  00b50633  add  a2,a0,a1` becomes a row with address 0x10, word 0x00B50633, text `add a2,a0,a1`, format R, opcode 0x33, rd 12, rs1 10, rs2 11, funct3 0, funct7 0, and no immediate. For branches and jumps, objdump prints the target address, not the offset: `beq a0,a1,4c` at address 0x44 has an immediate of 0x4C - 0x44 = 8.
+
+**Immediate examples** (every word is from the cross assembler; `+8` means 8 bytes forward from the instruction itself, written `. + 8` in assembly)
+
+| Instruction | Word | Builder | Returns | Why |
+|---|---|---|---|---|
+| `addi a0, zero, -1` | 0xFFF00513 | `imm_i` | 0xFFFFFFFF | -1 |
+| `addi a0, zero, 2047` | 0x7FF00513 | `imm_i` | 0x000007FF | largest I immediate |
+| `addi a0, zero, -2048` | 0x80000513 | `imm_i` | 0xFFFFF800 | most negative I immediate |
+| `sw a2, -4(sp)` | 0xFEC12E23 | `imm_s` | 0xFFFFFFFC | -4, from two pieces |
+| `sw a2, 2047(sp)` | 0x7EC12FA3 | `imm_s` | 0x000007FF | largest S immediate |
+| `beq a0, a1, +8` | 0x00B50463 | `imm_b` | 0x00000008 | 8 bytes forward |
+| `bne a0, zero, -8` | 0xFE051CE3 | `imm_b` | 0xFFFFFFF8 | 8 bytes back |
+| `beq a0, a1, +4094` | 0x7EB50FE3 | `imm_b` | 0x00000FFE | largest B offset |
+| `beq a0, a1, -4096` | 0x80B50063 | `imm_b` | 0xFFFFF000 | most negative B offset |
+| `lui a4, 0x12345` | 0x12345737 | `imm_u` | 0x12345000 | low 12 bits zero |
+| `lui a4, 0x80000` | 0x80000737 | `imm_u` | 0x80000000 | most negative U immediate |
+| `jal ra, +16` | 0x010000EF | `imm_j` | 0x00000010 | 16 bytes forward |
+| `jal zero, -16` | 0xFF1FF06F | `imm_j` | 0xFFFFFFF0 | 16 bytes back |
+| `jal ra, +1048574` | 0x7FFFF0EF | `imm_j` | 0x000FFFFE | largest J offset |
+| `jal zero, -1048576` | 0x8000006F | `imm_j` | 0xFFF00000 | most negative J offset |
+| `ecall` | 0x00000073 | `imm_i` | 0x00000000 | ECALL and EBREAK differ only in the immediate |
+| `ebreak` | 0x00100073 | `imm_i` | 0x00000001 | |
 
 **Tests**
-- [ ] T4.1 Every immediate type: zero, small positive, small negative, largest positive, most negative. Start with the table above.
-- [ ] T4.2 B and J immediates always have bit 0 clear; include backward branches and jumps.
-- [ ] T4.3 Every vector from 4.5 yields the fields and immediates the disassembly shows.
+- [X] T4.1 Every immediate builder at zero, small positive, small negative, largest positive, and most negative. Start with the examples table, and get the missing words from the cross assembler.
+- [X] T4.2 B and J immediates always have bit 0 clear: backward branches and jumps included, and the all-ones word 0xFFFFFFFF, for which both builders return 0xFFFFFFFE (-2).
+- [X] T4.3 The 4.3 examples, then every row of the 4.5 table: the opcode, the fields its format has, and the immediate all match what the disassembly shows.
 
-**Done when:** every vector decodes to the right fields.
+**Done when:** all tests pass in the sanitizer build, every vector decodes to the fields and immediate objdump shows, and you can point to where each bit of a B and a J immediate sits on your 4.1 drawing.
 
-**C++ focus:** `enum class` and underlying types, `constexpr`, test fixtures, table-driven tests.
+**C++ focus:** `enum class` and underlying types, `constexpr`, `static_assert`, test fixtures, table-driven tests (`TEST_P`), `inline` variables shared through a header.
 
 ### Lab 5: Instruction class hierarchy and decoder (L)
 

@@ -9,7 +9,7 @@
 #include "rvsim/types.hpp"
 
 using rvsim::RegisterFile;
-using rvsim::regIndex;
+using rvsim::RegIndex;
 using rvsim::Word;
 
 // 3.1: the design, pinned down at compile time. If one is wrong, this file doesn't compile.
@@ -40,7 +40,7 @@ TEST(TestingRegisterFile, NewRegisterFileReadsZeroEverywhere) {
     const RegisterFile regs;
 
     for (std::size_t i = 0; i < RegisterFile::numRegisters; i++)
-        EXPECT_EQ(regs.read(static_cast<regIndex>(i)), Word{0}) << "x" << i;
+        EXPECT_EQ(regs.read(static_cast<RegIndex>(i)), Word{0}) << "x" << i;
 }
 
 // The 3.1 example: after writing 5 to x0 and 12 to x10, x0 reads 0 and x10 reads 12.
@@ -64,10 +64,10 @@ TEST(TestingRegisterFile, X1ToX31RoundTrip) {
     RegisterFile regs;
 
     for (std::size_t i = 1; i < RegisterFile::numRegisters; i++)
-        regs.write(static_cast<regIndex>(i), value_for(i));
+        regs.write(static_cast<RegIndex>(i), value_for(i));
 
     for (std::size_t i = 1; i < RegisterFile::numRegisters; i++)
-        EXPECT_EQ(regs.read(static_cast<regIndex>(i)), value_for(i)) << "x" << i;
+        EXPECT_EQ(regs.read(static_cast<RegIndex>(i)), value_for(i)) << "x" << i;
     EXPECT_EQ(regs.read(0), Word{0});
 }
 
@@ -120,7 +120,7 @@ TEST(TestingAbiName, AllThirtyTwoInOrder) {
     };
 
     for (std::size_t i = 0; i < expected.size(); i++)
-        EXPECT_EQ(rvsim::abi_name(static_cast<regIndex>(i)), expected[i]) << "x" << i;
+        EXPECT_EQ(rvsim::abi_name(static_cast<RegIndex>(i)), expected[i]) << "x" << i;
 }
 
 // ---- Optional: death tests ----

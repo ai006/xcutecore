@@ -13,7 +13,7 @@ namespace rvsim {
 //with 0 ≤ lo ≤ hi ≤ 31. Returns the bits
 //from hi down to lo as a Word, 
 [[nodiscard]]
-constexpr Word bits(Word value, uint32_t hi, uint32_t lo) noexcept{
+constexpr Word bits(Word value, uint32_t hi, uint32_t lo) noexcept {
     assert(hi >= lo);
     assert(hi <= 31);
 
@@ -29,14 +29,14 @@ constexpr Word bits(Word value, uint32_t hi, uint32_t lo) noexcept{
 
 //check if bit is 1 or 0
 [[nodiscard]]
-constexpr bool bit(Word value, uint32_t pos) noexcept{
+constexpr bool bit(Word value, uint32_t pos) noexcept {
     assert(pos <= 31);
     return value & (1u << pos);
 }
 
 //singed extend the value
 [[nodiscard]]
-constexpr Word sign_extend(Word value, uint32_t width) noexcept{
+constexpr Word sign_extend(Word value, uint32_t width) noexcept {
 
     assert(width >= 1);
     assert(width <= 32);

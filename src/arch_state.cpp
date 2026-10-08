@@ -18,7 +18,7 @@ operator << (std::ostream& os, const ArchState& archState) {
     os << std::format("pc  {:08x}\n", archState.pc);
 
     for (std::size_t i = 0; i < RegisterFile::numRegisters; i++) {
-        const regIndex index = static_cast<regIndex>(i);
+        const RegIndex index = static_cast<RegIndex>(i);
 
         // Three spaces between entries, none after the last one on a line.
         if (i % registersPerLine != 0)

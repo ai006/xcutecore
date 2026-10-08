@@ -1,6 +1,6 @@
 # Hints
 
-Hints are keyed to the objective numbers in `labs.md`. Try the objective first. **Gotcha** marks bugs that commonly cost hours. There is no code here. Names are suggestions: types in PascalCase and functions in snake_case. If you prefer snake_case types like `load_instruction`, rename as you go and stay consistent. Labs with their own walkthrough file (`hints_lab2.md` so far) are covered there instead; this file keeps the general notes and the hints for the other labs.
+Hints are keyed to the objective numbers in `labs.md`. Try the objective first. **Gotcha** marks bugs that commonly cost hours. There is no code here. Names are suggestions: types in PascalCase and functions in snake_case. If you prefer snake_case types like `load_instruction`, rename as you go and stay consistent. Labs with their own walkthrough file (`hints_lab2.md` and `hints_lab4.md` so far) are covered there instead; this file keeps the general notes and the hints for the other labs.
 
 ## Notes on the fmash16 post
 
@@ -52,13 +52,7 @@ Lab 2 has its own walkthrough: `hints_lab2.md`.
 
 ## Lab 4
 
-- **4.1** The spec's figure of the base formats and its "RV32/64G Instruction Set Listings" table give every opcode, funct3, and funct7 you need. Drawing the formats yourself is the fastest way to remember where the immediate bits sit.
-- **4.2** Every 32-bit RISC-V instruction ends in binary 11. RV32I uses 11 major opcodes: LUI, AUIPC, JAL, JALR, BRANCH, LOAD, STORE, OP-IMM, OP, MISC-MEM, and SYSTEM. Take the values from the spec table.
-- **4.3** rd, rs1, and rs2 are 5 bits wide; funct3 is 3; funct7 and the opcode are 7. Extract all of them for every instruction, even fields a format doesn't use. Deciding which fields matter is the decoder's job.
-- **4.4** I-type is one contiguous field, sign-extended. S-type is the same 12 bits split into two pieces around the rd position. U-type keeps the upper 20 bits where they are with the low 12 bits zero, so no extension step is needed on RV32.
-- **4.4** **Gotcha:** B and J are where most decoders go wrong. Their immediate bits are shuffled so the sign bit is always instruction bit 31 and the other bits line up with the S and U formats. Bit 0 of the immediate is always 0 and isn't stored. Build each piece from the spec figure one at a time, and test backward offsets and both range limits.
-- **4.5** Place labels a known distance away (or write targets relative to `.`, the current address) so you control the exact offsets; objdump then shows the resulting target address. Another trick: encode a word by hand with the `.word` directive and check that objdump disassembles it to what you intended.
-- **4.5** **Gotcha:** objdump prints many instructions under alias names (`li`, `mv`, `j`, `ret`, `nop`, `beqz`). Add `-M no-aliases` to see the real instruction, and `-M numeric` if you want x-register numbers instead of ABI names.
+Lab 4 has its own walkthrough: `hints_lab4.md`.
 
 ## Lab 5
 

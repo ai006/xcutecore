@@ -10,7 +10,7 @@
 
 namespace rvsim {
 
-std::string_view abi_name(regIndex index);
+std::string_view abi_name(RegIndex index);
 
 class RegisterFile {
 
@@ -18,13 +18,13 @@ class RegisterFile {
         static constexpr std::size_t numRegisters = 32;
 
         // function to write to register
-        void write(regIndex index, Word value);
+        void write(RegIndex index, Word value);
         // function to read from register
-        Word read(regIndex index) const;
+        Word read(RegIndex index) const;
         
         // function to compare two register files
         bool operator == (const RegisterFile& regfile) const {
-            for(regIndex index = 0; index < numRegisters; index++){
+            for(RegIndex index = 0; index < numRegisters; index++){
                 if(regfile.registers[index] != registers[index]){
                     return false;
                 }

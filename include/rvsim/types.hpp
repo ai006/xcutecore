@@ -15,7 +15,7 @@ using Sword = int32_t;
 using Addr = uint32_t;
 
 //a register number 0 to 31
-using regIndex = uint8_t;
+using RegIndex = uint8_t;
 
 }
 

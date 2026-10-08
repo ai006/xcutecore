@@ -12,7 +12,7 @@
 using rvsim::Addr;
 using rvsim::ArchState;
 using rvsim::RegisterFile;
-using rvsim::regIndex;
+using rvsim::RegIndex;
 using rvsim::Word;
 
 // 3.3: an ArchState can be made, copied as a snapshot, and compared.
@@ -49,7 +49,7 @@ TEST(TestingArchState, NewStateIsAllZero) {
 
     EXPECT_EQ(state.pc, Addr{0});
     for (std::size_t i = 0; i < RegisterFile::numRegisters; i++)
-        EXPECT_EQ(state.regs.read(static_cast<regIndex>(i)), Word{0}) << "x" << i;
+        EXPECT_EQ(state.regs.read(static_cast<RegIndex>(i)), Word{0}) << "x" << i;
 }
 
 // ---- T3.3: states that differ only in the pc, or in one register, are unequal ----
@@ -81,7 +81,7 @@ TEST(TestingArchState, DifferOnlyInOneRegister) {
     const ArchState original = example_state();
 
     for (std::size_t i = 1; i < RegisterFile::numRegisters; i++) {
-        const regIndex index = static_cast<regIndex>(i);
+        const RegIndex index = static_cast<RegIndex>(i);
         ArchState changed = original;
         changed.regs.write(index, changed.regs.read(index) ^ 1);
         EXPECT_NE(changed, original) << "only x" << i << " differs";
