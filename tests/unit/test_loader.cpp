@@ -1,3 +1,7 @@
+// Turn a T item's tests off by commenting out its line. Each block below builds on its own.
+#define RUN_T2_7
+#define RUN_T2_8
+
 #include <gtest/gtest.h>
 
 #include <array>
@@ -23,6 +27,11 @@ using rvsim::MemoryFault;
 using rvsim::Addr;
 using rvsim::Word;
 
+// ==== Shared by more than one block ====
+//
+// `inline` matters here. With every block that calls make_bus switched off, a plain function
+// would be unused, and -Wall -Werror stops the build on an unused function. An unused inline
+// function isn't even compiled into the program, so switching blocks off is always safe.
 
 namespace {
 
@@ -39,11 +48,18 @@ constexpr Addr ramBase = 0x80000000;
 
 // A bus with the D2 memory map: 1 MiB of memory at 0x80000000. A Bus is move-only, and
 // returning it by value moves it, devices included.
-Bus make_bus() {
+inline Bus make_bus() {
     Bus bus;
     bus.map(ramBase, std::make_unique<Memory>(0x100000));
     return bus;
 }
+
+}
+
+// ==== T2.7: the loader places bytes ====
+#ifdef RUN_T2_7
+
+namespace {
 
 // Runs access() and returns the MemoryFault it throws, or nothing if it doesn't throw.
 template <typename F>
@@ -57,8 +73,6 @@ std::optional<MemoryFault> catch_fault(F access) {
 }
 
 }
-
-// ---- T2.7: the loader places bytes ----
 
 // The 2.7 example: load 13 05 50 00 at 0x80000000, and a fetch there returns 0x00500513,
 // the first instruction of first.S.
@@ -121,7 +135,10 @@ TEST(TestingLoader, LoadingPastTheEndOfMemoryThrows) {
     EXPECT_EQ(bus.read(0x8000000E, 2), Word{0xBBAA});
 }
 
-// ---- T2.8: the hex dump string, exactly ----
+#endif  // RUN_T2_7
+
+// ==== T2.8: the hex dump string, exactly ====
+#ifdef RUN_T2_8
 
 // The 2.8 example string, newline included.
 TEST(TestingHexDump, OneFullLine) {
@@ -184,3 +201,5 @@ TEST(TestingHexDump, UnmappedByteThrows) {
 
     EXPECT_THROW((void)rvsim::hex_dump(bus, 0x800FFFF8, 16), MemoryFault);
 }
+
+#endif  // RUN_T2_8

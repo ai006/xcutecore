@@ -1,3 +1,9 @@
+// Turn a T item's tests off by commenting out its line. Each block below builds on its own.
+#define RUN_T2_1
+#define RUN_T2_2
+#define RUN_T2_3
+#define RUN_T2_4
+
 #include <gtest/gtest.h>
 
 #include <type_traits>
@@ -8,10 +14,18 @@
 using rvsim::Addr;
 using rvsim::Word;
 
+// ==== T2.1: Device is abstract and has a virtual destructor ====
+#ifdef RUN_T2_1
+
 //check if Device is an abstract class
 static_assert(std::is_abstract_v<rvsim::Device> == true);
 //check if Device has a virtual destructor
 static_assert(std::has_virtual_destructor_v<rvsim::Device> == true);
+
+#endif  // RUN_T2_1
+
+// ==== T2.2: a new memory reads 0; 1-byte round trips ====
+#ifdef RUN_T2_2
 
 //Test T2.2 (only testing writes and reads of a single byte)
 TEST(TestingMemory, TestReadWrite) {
@@ -38,6 +52,11 @@ TEST(TestingMemory, TestReadWrite) {
     delete memory;
 }
 
+#endif  // RUN_T2_2
+
+// ==== T2.3: little-endian 2- and 4-byte access ====
+#ifdef RUN_T2_3
+
 //Test T2.3 (only testing writes and reads of a single byte)
 TEST(TestingMemory, TestReadWrite1) {
     std::size_t size = 20;
@@ -63,23 +82,28 @@ TEST(TestingMemory, TestReadWrite1) {
     delete memory;
 }
 
+#endif  // RUN_T2_3
+
+// ==== T2.4: accesses that cross the end throw, and the fault's fields are right ====
+#ifdef RUN_T2_4
+
 //Test T2.4: a 4-byte read that starts 1, 2, or 3 bytes before the end throws
 TEST(TestingMemory, TestReadPastEnd) {
     std::size_t size = 16;
     rvsim::Device* memory = new rvsim::Memory(size);
- 
+
     EXPECT_THROW((void)memory->read(13, 4), rvsim::MemoryFault); //3 bytes before the end
     EXPECT_THROW((void)memory->read(14, 4), rvsim::MemoryFault); //2 bytes before the end
     EXPECT_THROW((void)memory->read(15, 4), rvsim::MemoryFault); //1 byte before the end
- 
+
     //smaller reads past the end throw too
     EXPECT_THROW((void)memory->read(15, 2), rvsim::MemoryFault);
     EXPECT_THROW((void)memory->read(16, 1), rvsim::MemoryFault);
- 
+
     //writes past the end throw too
     EXPECT_THROW(memory->write(13, 4, 0xAABBCCDD), rvsim::MemoryFault);
     EXPECT_THROW(memory->write(16, 1, 0xAA), rvsim::MemoryFault);
- 
+
     delete memory;
 }
 
@@ -87,7 +111,7 @@ TEST(TestingMemory, TestReadPastEnd) {
 TEST(TestingMemory, TestFaultFields) {
     std::size_t size = 16;
     rvsim::Device* memory = new rvsim::Memory(size);
- 
+
     //a read that crosses the end
     try {
         (void)memory->read(13, 4);
@@ -97,7 +121,7 @@ TEST(TestingMemory, TestFaultFields) {
         EXPECT_EQ(fault.getWidth(), 4);
         EXPECT_EQ(fault.getAccessType(), rvsim::AccessType::Read);
     }
- 
+
     //a write that crosses the end
     try {
         memory->write(15, 2, 0xABCD);
@@ -107,22 +131,24 @@ TEST(TestingMemory, TestFaultFields) {
         EXPECT_EQ(fault.getWidth(), 2);
         EXPECT_EQ(fault.getAccessType(), rvsim::AccessType::Write);
     }
- 
+
     delete memory;
 }
- 
+
 //Test T2.4: the last valid access at each width does not throw
 TEST(TestingMemory, TestLastValidAccess) {
     std::size_t size = 16;
     rvsim::Device* memory = new rvsim::Memory(size);
- 
+
     EXPECT_NO_THROW(memory->write(15, 1, 0xAA));       //last byte
     EXPECT_NO_THROW(memory->write(14, 2, 0xAABB));     //last 2 bytes
     EXPECT_NO_THROW(memory->write(12, 4, 0xAABBCCDD)); //last 4 bytes
- 
+
     EXPECT_NO_THROW((void)memory->read(15, 1));
     EXPECT_NO_THROW((void)memory->read(14, 2));
     EXPECT_NO_THROW((void)memory->read(12, 4));
- 
+
     delete memory;
 }
+
+#endif  // RUN_T2_4

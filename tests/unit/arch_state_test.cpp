@@ -1,3 +1,7 @@
+// Turn a T item's tests off by commenting out its line. Each block below builds on its own.
+#define RUN_T3_3
+#define RUN_3_3_DUMP    // 3.3's operator<< (it has no T item; it's Lab 3's "done when")
+
 #include <gtest/gtest.h>
 
 #include <concepts>
@@ -15,15 +19,16 @@ using rvsim::RegisterFile;
 using rvsim::RegIndex;
 using rvsim::Word;
 
-// 3.3: an ArchState can be made, copied as a snapshot, and compared.
-static_assert(std::default_initializable<ArchState>);
-static_assert(std::copyable<ArchState>);
-static_assert(std::equality_comparable<ArchState>);
+// ==== Shared by more than one block ====
+//
+// `inline` matters here. With every block that calls example_state switched off, a plain
+// function would be unused, and -Wall -Werror stops the build on an unused function. An unused
+// inline function isn't even compiled into the program, so switching blocks off is always safe.
 
 namespace {
 
 // The state from the 3.3 example: pc 0x80000008, sp (x2) 0x800FFFF0, a2 (x12) 12.
-ArchState
+inline ArchState
 example_state() {
     ArchState state;
     state.pc = 0x80000008;
@@ -32,18 +37,17 @@ example_state() {
     return state;
 }
 
-// What operator<< prints, as a string.
-std::string
-dump(const ArchState& state) {
-    std::ostringstream out;
-    out << state;
-    return out.str();
 }
 
-}
+// ==== T3.3: states that differ only in the pc, or in one register, are unequal ====
+#ifdef RUN_T3_3
 
-// ---- 3.3: a new state starts at 0 ----
+// 3.3: an ArchState can be made, copied as a snapshot, and compared.
+static_assert(std::default_initializable<ArchState>);
+static_assert(std::copyable<ArchState>);
+static_assert(std::equality_comparable<ArchState>);
 
+// Beyond T3.3: a new state starts at 0.
 TEST(TestingArchState, NewStateIsAllZero) {
     const ArchState state;
 
@@ -51,8 +55,6 @@ TEST(TestingArchState, NewStateIsAllZero) {
     for (std::size_t i = 0; i < RegisterFile::numRegisters; i++)
         EXPECT_EQ(state.regs.read(static_cast<RegIndex>(i)), Word{0}) << "x" << i;
 }
-
-// ---- T3.3: states that differ only in the pc, or in one register, are unequal ----
 
 TEST(TestingArchState, IdenticalStatesAreEqual) {
     EXPECT_EQ(ArchState{}, ArchState{});
@@ -96,7 +98,22 @@ TEST(TestingArchState, WriteToX0DoesNotChangeTheState) {
     EXPECT_EQ(changed, example_state());
 }
 
-// ---- 3.3 and "done when": the state dump prints all 32 registers as a readable table ----
+#endif  // RUN_T3_3
+
+// ==== 3.3 and "done when": the state dump prints all 32 registers as a readable table ====
+#ifdef RUN_3_3_DUMP
+
+namespace {
+
+// What operator<< prints, as a string.
+std::string
+dump(const ArchState& state) {
+    std::ostringstream out;
+    out << state;
+    return out.str();
+}
+
+}
 
 // The 3.3 example in full: its first lines are the ones labs.md shows.
 TEST(TestingArchStateDump, ExampleStatePrintsAsATable) {
@@ -143,3 +160,5 @@ TEST(TestingArchStateDump, CanBeChained) {
     EXPECT_EQ(text.substr(0, 7), "before\n");
     EXPECT_EQ(text.substr(text.size() - 6), "after\n");
 }
+
+#endif  // RUN_3_3_DUMP

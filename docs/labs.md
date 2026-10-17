@@ -91,9 +91,12 @@ Every file the core labs (0 to 16) leave in the repository, and the lab that cre
 │       ├── commit_record.hpp          Lab 3
 │       ├── fields.hpp                 Lab 4
 │       ├── instruction.hpp            Lab 5
-│       ├── instructions.hpp           Labs 5, 6
+│       ├── arith_instructions.hpp     Labs 5, 6
+│       ├── load_store_instructions.hpp Labs 5, 6 (class templates, header only)
+│       ├── control_instructions.hpp   Labs 5, 6
+│       ├── system_instructions.hpp    Labs 5, 6
 │       ├── decode.hpp                 Lab 5
-│       ├── alu.hpp                    Lab 6
+│       ├── alu.hpp                    Lab 5 (AluOp), Lab 6 (alu)
 │       ├── stages.hpp                 Lab 7
 │       ├── stop_reason.hpp            Lab 7
 │       ├── single_cycle_cpu.hpp       Lab 7
@@ -120,7 +123,9 @@ Every file the core labs (0 to 16) leave in the repository, and the lab that cre
 │   ├── register_file.cpp              Lab 3
 │   ├── arch_state.cpp                 Lab 3
 │   ├── instruction.cpp                Lab 5
-│   ├── instructions.cpp               Labs 5, 6
+│   ├── arith_instructions.cpp         Labs 5, 6
+│   ├── control_instructions.cpp       Labs 5, 6
+│   ├── system_instructions.cpp        Labs 5, 6
 │   ├── decode.cpp                     Lab 5
 │   ├── alu.cpp                        Lab 6
 │   ├── stop_reason.cpp                Lab 7
@@ -179,6 +184,8 @@ Every file the core labs (0 to 16) leave in the repository, and the lab that cre
 │   │   │   └── first.S                Lab 0
 │   │   ├── lab4/
 │   │   │   └── vectors.S              Lab 4
+│   │   ├── lab5/
+│   │   │   └── illegal.S              Lab 5 (T5.5)
 │   │   └── suite/                     Lab 8, one self-checking program per file
 │   │       ├── fib_loop.c
 │   │       ├── fib_recursive.c
@@ -897,7 +904,7 @@ How it ties to earlier pieces:
   | `imm_j(word)` | J | JAL | the byte offset from the jal's own pc, sign-extended | -1048576 to 1048574, always even |
 
   `imm_u` returns the value in its final position: `lui a4, 0x12345` gives 0x12345000, not 0x12345. Branch and jump offsets are always even, so B and J instructions don't store bit 0 of the immediate, and `imm_b` and `imm_j` put a 0 there. FENCE, ECALL, and EBREAK use the I-type layout too, so `imm_i` works on them: ECALL gives 0 and EBREAK gives 1. The table below has worked examples.
-- [X] 4.5 **Test vectors**: write one assembly file, `tests/programs/lab4/vectors.S`, that uses all 40 RV32I instructions at least once (the table in 4.2). Choose immediates that hit zero, small positive, small negative, and both range limits of every immediate type, and put x0 and x31 in every register field somewhere. Assemble it with the cross toolchain and disassemble it with `objdump -d -M no-aliases` (`hints_lab4.md` Part 5 has the commands). Then copy the output into `tests/unit/rv32i_vectors.hpp` as a table with one row per instruction: its address, its word, the disassembly text, its format, its opcode and fields, and its immediate. It's a header so that Lab 5's tests can include the same table (T5.1, T5.3).
+- [X] 4.5 **Test vectors**: write one assembly file, `tests/programs/lab4/vectors.S`, that uses all 40 RV32I instructions at least once (the table in 4.2). Choose immediates that hit zero, small positive, small negative, and both range limits of every immediate type, and put x0 and x31 in every register field somewhere. Assemble it with the cross toolchain and disassemble it with `objdump -d -M no-aliases` (`hints_lab4.md` Part 5 has the commands). Then copy the output into `tests/unit/rv32i_vectors.hpp` as a table with one row per instruction: its address, its word, the disassembly text, its format, its opcode and fields, and its immediate. It's a header so that Lab 5's tests can include the same table (T5.3 to T5.6).
 
   Example: the objdump line `10:  00b50633  add  a2,a0,a1` becomes a row with address 0x10, word 0x00B50633, text `add a2,a0,a1`, format R, opcode 0x33, rd 12, rs1 10, rs2 11, funct3 0, funct7 0, and no immediate. For branches and jumps, objdump prints the target address, not the offset: `beq a0,a1,4c` at address 0x44 has an immediate of 0x4C - 0x44 = 8.
 
@@ -934,32 +941,210 @@ How it ties to earlier pieces:
 
 ### Lab 5: Instruction class hierarchy and decoder (L)
 
-**Goal:** turn a raw instruction into an object that knows what it is and what it does in each stage.
+**Goal:** turn a raw instruction into an object that knows what it is, which registers it uses, and how to print itself. What it does in each stage comes in Lab 6.
 
-**Where this fits:** the decode stage hands a fetched `Word` and its pc to `decode()` and gets back an object. From then on the CPU never looks at bits again: it asks the object which registers it reads and writes, and (from Lab 6) tells it to execute.
+**Where this fits:** Lab 4 cut a word into named pieces, but it never decided what the pieces mean: for `addi a0, zero, -1`, `rs2` returns 31 even though ADDI has no rs2. This lab makes that decision, once per instruction. `decode()` reads the opcode, funct3, and funct7, picks one of 12 classes, and returns an object of that class. From then on the CPU never looks at bits again. It asks the object which registers it reads and writes and how to print itself, and Lab 6 adds what it does in each stage.
+
+```
+Lab 7's fetch hands decode() a Word and its pc:   0x00B50633 at 0x80000008
+
+decode(word, pc)                                  5.5: reads the opcode, funct3, funct7
+   opcode 0x33 (OP), funct3 0, funct7 0
+   → builds a RegisterOpInstruction with AluOp::ADD
+          │
+          ▼
+std::unique_ptr<Instruction>                      5.1: the CPU only sees the base class
+   kind()         RegisterOp                      rd() 12   rs1() 10   rs2() 11   imm() 0
+   mnemonic()     "add"                           reads_rs1() true   reads_rs2() true
+   disassemble()  "add a2,a0,a1"                  writes_rd() true   the other queries false
+```
+
+How it ties to earlier pieces:
+- **Lab 4:** `decode()` switches on your `Opcode` (4.2) and reads funct3 and funct7 with the extractors (4.3). Each class fills in its fields with the extractors and the immediate builders (4.4). The 66 vectors from 4.5 are the inputs for T5.3 to T5.6.
+- **Lab 3:** register fields are `RegIndex` (3.1), and disassembly prints them with `abi_name` (3.2).
+- **Lab 2:** `Device` (2.1) was your first abstract class, with the same pure virtual functions and virtual destructor. The class templates keep their bodies in headers, like `Bus::read<T>` and `write<T>` (2.6).
+- **Later:** Lab 6 adds each class's stage behavior (6.1) and `alu()`, which takes the `AluOp` from 5.2. Lab 7's CPU calls `decode()` on every fetched word. Lab 9's trace prints `disassemble()`. Lab 11's hazard logic runs on the queries and the register getters. Lab 12's pipeline decodes wrong-path garbage all the time, which is why `decode()` never throws.
+
+**Rules for every class**
+- `decode()` is the only code that reads the opcode, funct3, or funct7 to decide what an instruction is. A class never decides again: `decode()` tells it, through the class and template arguments it picks and the `AluOp` it passes.
+- Every member function you write in this lab is `const`: an instruction doesn't change after it's built. (Lab 6 adds the values that change.)
+- A field the format doesn't have stays 0: a store's rd, LUI's rs1. The queries say which fields count.
+- Nothing throws and nothing returns null. A word that isn't an RV32I instruction becomes an `IllegalInstruction`, an object like any other.
+- Outside `decode()` and the tests, code holds a `std::unique_ptr<Instruction>` and never names a derived class.
+
+**Hints:** `hints.md` Lab 5 has the gotchas for each objective.
+
+**Files:** add each `.cpp` to `rvcore` and the test file to `unit_tests`, as in Lab 2; headers don't need listing. The 5.4 class templates keep their member function bodies in their headers (`load_store_instructions.hpp` and `control_instructions.hpp`), the way `Bus::read<T>` and `write<T>` live in `bus.hpp` (2.6): the compiler needs a template's code wherever the template is used (`hints.md` 5.4 has the gotcha).
+
+| File | What goes in it | Objectives |
+|---|---|---|
+| `include/rvsim/instruction.hpp`, `src/instruction.cpp` | `InstructionKind` and `Instruction`, the abstract base class | 5.1 |
+| `include/rvsim/alu.hpp` | `AluOp`. Header only for now; Lab 6 adds `alu()` and `src/alu.cpp` | 5.2 |
+| `include/rvsim/arith_instructions.hpp`, `src/arith_instructions.cpp` | `RegisterOpInstruction`, `ImmediateOpInstruction`, `LuiInstruction`, `AuipcInstruction` | 5.3, 5.6 |
+| `include/rvsim/load_store_instructions.hpp` | `LoadInstruction` and `StoreInstruction`, both class templates, so header only | 5.3, 5.4, 5.6 |
+| `include/rvsim/control_instructions.hpp`, `src/control_instructions.cpp` | `BranchInstruction` (a class template), `JalInstruction`, `JalrInstruction` | 5.3, 5.4, 5.6 |
+| `include/rvsim/system_instructions.hpp`, `src/system_instructions.cpp` | `SystemInstruction`, `FenceInstruction`, `IllegalInstruction` | 5.3, 5.6 |
+| `include/rvsim/decode.hpp`, `src/decode.cpp` | `decode()` | 5.5 |
+| `tests/programs/lab5/illegal.S`, `tests/programs/lab5/illegal.dump` | encodings `decode()` must reject (T5.5), built by the cross assembler, and their objdump listing | |
+| `tests/unit/rv32i_vectors.hpp` | Lab 4's table, already there: T5.3 to T5.6 use its rows | |
+| `tests/unit/decode_test.cpp` | T5.1 to T5.6 | |
+
+The derived classes are split into four families because that's how Lab 6 adds their behavior. 6.3 fills in the arithmetic file, 6.4 and 6.7 mostly the control file, and 6.5 the load and store file, the only one that needs `bus.hpp`. LUI and AUIPC sit with arithmetic, even though 6.4 covers them, because they compute a value for rd and never transfer control. Nothing outside `decode()` and the tests includes these four headers: the CPU (Lab 7) and the pipeline (Lab 10) see only `Instruction`. An extension that adds instructions, like E4's multiply and divide, gets a file of its own.
 
 **Objectives**
-- [ ] 5.1 **Abstract `Instruction`**. Built from a pc (`Addr`) and a raw `Word`; it stores both, plus the decoded register numbers and immediate. It declares:
-  - stage behavior: `execute()`, `access_memory(Bus&)`, and `write_back(RegisterFile&)`, whose bodies come in Lab 6
-  - `disassemble()`, returning a `std::string`
-  - queries that return `bool`: `reads_rs1()`, `reads_rs2()`, `writes_rd()`, `is_load()`, `is_control_flow()`, `is_system()`
+- [ ] 5.1 **Abstract class `Instruction`**: create the base class that every instruction derives from, and an enum class that names the 12 kinds of instruction. `Instruction` holds what every instruction has and declares the questions every instruction answers. It never decides what kind of instruction a word is: `decode()` (5.5) chooses a derived class (5.3), and that class gives the answers.
+  - `enum class InstructionKind` with 12 enumerators, one per 5.3 class: `RegisterOp`, `ImmediateOp`, `Lui`, `Auipc`, `Load`, `Store`, `Branch`, `Jal`, `Jalr`, `System`, `Fence`, `Illegal`.
+  - Data, `protected` so the derived classes can fill it in: the pc (`Addr`), the raw word (`Word`), rd, rs1, and rs2 (`RegIndex`), and the immediate (`Word`). The constructor stores the pc and the word. rd, rs1, rs2, and the immediate start at 0, and each derived class fills in the ones its format has (5.3).
+  - Members:
 
-  Examples: `add a2, a0, a1` reads rs1 and rs2 and writes rd. `sw a2, -4(sp)` reads rs1 and rs2 and writes nothing. `lui a4, 0x12345` reads nothing and writes rd.
-- [ ] 5.2 Derived classes by category: `LoadInstruction`, `StoreInstruction`, `BranchInstruction`, `RegisterOpInstruction` (R-type), `ImmediateOpInstruction` (I-type arithmetic and shifts), `LuiInstruction`, `AuipcInstruction`, `JalInstruction`, `JalrInstruction`, `SystemInstruction` (ECALL, EBREAK), `FenceInstruction`, and `IllegalInstruction`.
-- [ ] 5.3 Use class templates for the load family (width and signedness), the store family (width), and the branch family (comparison and signedness).
-- [ ] 5.4 **`decode(word, pc)`**. Takes any `Word` and its `Addr`, and returns a `std::unique_ptr<Instruction>`. It never returns null and never throws: anything that isn't a valid RV32I instruction becomes an `IllegalInstruction`. Examples: `decode(0x00B50633, 0x80000008)` gives a `RegisterOpInstruction`, `decode(0x0FF0000F, pc)` gives a `FenceInstruction`, and `decode(0x00000000, pc)` gives an `IllegalInstruction`.
-- [ ] 5.5 **Disassembly** in the same form as `objdump -d -M no-aliases`: the mnemonic, then operands separated by commas, with ABI register names, loads and stores written as `offset(base)`, and branch and jump targets as absolute addresses. Examples: `add a2,a0,a1`, `addi a0,zero,-1`, `sw a2,-4(sp)`, `lui a4,0x12345`, `beq a0,a1,8000001c` (the beq at 0x80000014), `jal ra,80000024` (a jal at 0x80000014), and `ecall`.
-- [ ] 5.6 Leave the stage behavior bodies empty for now; Lab 6 fills them in.
+    | Member | Takes | Returns | Kind |
+    |---|---|---|---|
+    | constructor | `Addr pc`, `Word word` | | `protected`: only derived classes call it |
+    | destructor | | | virtual, defaulted |
+    | `kind()` | nothing | `InstructionKind` | pure virtual, `const` |
+    | `mnemonic()` | nothing | `std::string`, such as `"add"`, `"lbu"`, or `"ecall"` | pure virtual, `const` |
+    | `disassemble()` | nothing | `std::string`: the whole instruction as objdump prints it (5.6) | pure virtual, `const` |
+    | `reads_rs1()`, `reads_rs2()`, `writes_rd()`, `is_load()`, `is_control_flow()`, `is_system()` | nothing | `bool`; 5.3 lists every class's answers | virtual, `const` |
+    | `pc()`, `word()` | nothing | `Addr`, `Word`: what the constructor got | `const`, not virtual |
+    | `rd()`, `rs1()`, `rs2()` | nothing | `RegIndex`, 0 for a field the format doesn't have | `const`, not virtual |
+    | `imm()` | nothing | `Word`: the immediate as the class stored it (5.3), 0 if there is none | `const`, not virtual |
 
-**Tests**
-- [ ] T5.1 All 40 RV32I instructions decode to the right class and mnemonic (reuse the Lab 4 vectors).
-- [ ] T5.2 Illegal encodings produce `IllegalInstruction`: all zeros, all ones, an unused opcode, JALR with a nonzero funct3, an R-type with a bad funct7, a branch with funct3 010 or 011, the RV64-only load and store variants (LD, LWU, SD), and a shift immediate with the wrong upper bits.
-- [ ] T5.3 Disassembly of a sample of instructions matches the cross toolchain's objdump output (ignoring any spacing differences you decide not to care about).
-- [ ] T5.4 Queries: LUI and JAL read no registers; stores and branches don't write rd; only R-type, stores, and branches read rs2.
+  T5.3 and T5.4 check `kind()` and `mnemonic()` on every class, and T5.5 uses them to check `decode()`. The getters are for later labs: Lab 7's CPU reads `rs1()` and `rs2()` to fetch the operands and builds each `CommitRecord` from `pc()`, `word()`, and `rd()`, and Lab 11's hazard logic compares `rd()` with `rs1()` and `rs2()`. Because three of the functions are pure virtual, `Instruction insn(pc, word);` must not compile. Watch for two name clashes (`hints.md` 5.1). Inside these classes, `rd(word)` finds the member `rd()` instead of Lab 4's extractor, so write `rvsim::rd(word)`. And a data member can't share a name with a member function, so a data member `pc` and a getter `pc()` can't both exist.
+- [ ] 5.2 **`enum class AluOp`**: create an enum class in `alu.hpp` with 10 enumerators, one per operation the ALU does: `ADD`, `SUB`, `SLL`, `SLT`, `SLTU`, `XOR`, `SRL`, `SRA`, `OR`, `AND`. Their values don't matter. `RegisterOpInstruction` and `ImmediateOpInstruction` each cover several instructions, so each stores which operation it does as an `AluOp`, which `decode()` (5.5) passes to its constructor. In this lab the operation decides the mnemonic; in Lab 6, `alu(op, a, b)` (6.2) computes with it.
 
-**Done when:** every vector decodes to the right class and prints correctly.
+  | `AluOp` | `RegisterOpInstruction` | `ImmediateOpInstruction` |
+  |---|---|---|
+  | `ADD` | `add` | `addi` |
+  | `SUB` | `sub` | none: `addi` with a negative immediate does the job |
+  | `SLL` | `sll` | `slli` |
+  | `SLT` | `slt` | `slti` |
+  | `SLTU` | `sltu` | `sltiu` (the i comes before the u) |
+  | `XOR` | `xor` | `xori` |
+  | `SRL` | `srl` | `srli` |
+  | `SRA` | `sra` | `srai` |
+  | `OR` | `or` | `ori` |
+  | `AND` | `and` | `andi` |
 
-**C++ focus:** pure virtual functions, `override` and `final`, virtual destructors, `std::unique_ptr` and `std::make_unique`, the factory and null object patterns, class templates derived from a non-template base, type traits.
+  It lives in `alu.hpp`, not with the classes, because it's the ALU's input: Lab 6's `alu()` and its tests (`alu_test.cpp`) use it without any instruction class.
+- [ ] 5.3 **The 12 derived classes**: create 12 classes, each publicly derived from `Instruction` and marked `final`. Each one:
+  - takes `Addr pc` and `Word word` and passes them to `Instruction`'s constructor. `RegisterOpInstruction` and `ImmediateOpInstruction` also take the `AluOp` that `decode()` chose.
+  - fills in the fields its format has, using the 4.3 extractors and the 4.4 builder in the table below, and leaves the rest at 0.
+  - overrides `kind()`, `mnemonic()`, and `disassemble()`, and gives the query answers in the second table, either by overriding the queries or by setting values that the base's versions return.
+
+  | Class | Instructions | Format | Fills in | File (`include/rvsim/`) |
+  |---|---|---|---|---|
+  | `RegisterOpInstruction` | ADD SUB SLL SLT SLTU XOR SRL SRA OR AND | R | rd, rs1, rs2 | `arith_instructions.hpp` |
+  | `ImmediateOpInstruction` | ADDI SLTI SLTIU XORI ORI ANDI SLLI SRLI SRAI | I | rd, rs1, imm from `imm_i`; for SLLI, SRLI, and SRAI, imm is the shift amount, the low 5 bits of `imm_i` | `arith_instructions.hpp` |
+  | `LuiInstruction` | LUI | U | rd, imm from `imm_u` | `arith_instructions.hpp` |
+  | `AuipcInstruction` | AUIPC | U | rd, imm from `imm_u` | `arith_instructions.hpp` |
+  | `LoadInstruction<T>` | LB LH LW LBU LHU | I | rd, rs1, imm from `imm_i` | `load_store_instructions.hpp` |
+  | `StoreInstruction<T>` | SB SH SW | S | rs1, rs2, imm from `imm_s` | `load_store_instructions.hpp` |
+  | `BranchInstruction<Compare, T>` | BEQ BNE BLT BGE BLTU BGEU | B | rs1, rs2, imm from `imm_b` | `control_instructions.hpp` |
+  | `JalInstruction` | JAL | J | rd, imm from `imm_j` | `control_instructions.hpp` |
+  | `JalrInstruction` | JALR | I | rd, rs1, imm from `imm_i` | `control_instructions.hpp` |
+  | `SystemInstruction` | ECALL EBREAK | I | imm from `imm_i`: 0 for ECALL, 1 for EBREAK | `system_instructions.hpp` |
+  | `FenceInstruction` | FENCE | I | imm from `imm_i`, which holds the fm, pred, and succ fields | `system_instructions.hpp` |
+  | `IllegalInstruction` | any word `decode()` rejects | none | nothing | `system_instructions.hpp` |
+
+  | Class | `reads_rs1()` | `reads_rs2()` | `writes_rd()` | `is_load()` | `is_control_flow()` | `is_system()` |
+  |---|---|---|---|---|---|---|
+  | `RegisterOpInstruction` | yes | yes | yes | | | |
+  | `ImmediateOpInstruction` | yes | | yes | | | |
+  | `LuiInstruction` | | | yes | | | |
+  | `AuipcInstruction` | | | yes | | | |
+  | `LoadInstruction` | yes | | yes | yes | | |
+  | `StoreInstruction` | yes | yes | | | | |
+  | `BranchInstruction` | yes | yes | | | yes | |
+  | `JalInstruction` | | | yes | | yes | |
+  | `JalrInstruction` | yes | | yes | | yes | |
+  | `SystemInstruction` | | | | | | yes |
+  | `FenceInstruction` | | | | | | |
+  | `IllegalInstruction` | | | | | | |
+
+  A blank means `false`. The answers depend only on the class, never on the register numbers: `jal zero, ...` still answers `true` to `writes_rd()`, the register file ignores the write to x0 (3.1), and Lab 11 checks for x0 itself. Examples: `add a2, a0, a1` reads rs1 and rs2 and writes rd. `sw a2, -4(sp)` reads rs1 and rs2, writes nothing, and leaves `rd()` at 0, even though its rd bits hold 28: those are the low bits of the -4. `lui a4, 0x12345` reads nothing, writes rd, and leaves `rs1()` at 0, even though its rs1 bits hold 8: they're part of 0x12345.
+- [ ] 5.4 **Class templates**: make three of the 5.3 classes class templates, so that one template covers a whole family. Each instantiation, such as `LoadInstruction<std::int8_t>`, is its own class derived from `Instruction`, and `decode()` returns all of them as `std::unique_ptr<Instruction>`. Their member functions stay in the header (`hints.md` 5.4).
+
+  | Class template | Template parameters | One instantiation per instruction |
+  |---|---|---|
+  | `LoadInstruction<T>` | `T`: the type the loaded bytes become | LB `std::int8_t`, LH `std::int16_t`, LW `std::int32_t`, LBU `std::uint8_t`, LHU `std::uint16_t` |
+  | `StoreInstruction<T>` | `T`: the type the stored value is cut down to | SB `std::uint8_t`, SH `std::uint16_t`, SW `std::uint32_t` |
+  | `BranchInstruction<Compare, T>` | `Compare`: a standard function object; `T`: the type both register values are compared as | BEQ `std::equal_to<>`, `std::uint32_t`; BNE `std::not_equal_to<>`, `std::uint32_t`; BLT `std::less<>`, `std::int32_t`; BGE `std::greater_equal<>`, `std::int32_t`; BLTU `std::less<>`, `std::uint32_t`; BGEU `std::greater_equal<>`, `std::uint32_t` |
+
+  The parameters hold everything Lab 6 needs: `sizeof(T)` is the access width, converting to `T` sign- or zero-extends a load and cuts a store down to size (6.5), and `Compare` applied to the two register values converted to `T` is the branch decision (6.4). In this lab they only decide `mnemonic()`: `LoadInstruction<std::int8_t>` is `lb`, and `LoadInstruction<std::uint8_t>` is `lbu`. LW takes `std::int32_t` so that "unsigned means a u at the end" holds for every load: an unsigned 32-bit load would be `lwu`, which is RV64-only.
+- [ ] 5.5 **`decode(word, pc)`**: create a free function in `decode.hpp` that turns any word into an instruction object.
+
+  | Function | Takes | Returns |
+  |---|---|---|
+  | `decode(word, pc)` | `Word word`, `Addr pc` | `std::unique_ptr<Instruction>`, never null |
+
+  It's the only place that reads the opcode, funct3, and funct7 to choose a class. It picks the class, the template arguments (5.4), and the `AluOp` (5.2) from the table below, and builds the object with `std::make_unique`. It never throws: every word the table doesn't list becomes an `IllegalInstruction`.
+
+  | Opcode | Legal encodings | Class |
+  |---|---|---|
+  | `LUI`, `AUIPC`, `JAL` | every word | `LuiInstruction`, `AuipcInstruction`, `JalInstruction` |
+  | `JALR` | funct3 000 | `JalrInstruction` |
+  | `BRANCH` | funct3 000 BEQ, 001 BNE, 100 BLT, 101 BGE, 110 BLTU, 111 BGEU | `BranchInstruction<…>` |
+  | `LOAD` | funct3 000 LB, 001 LH, 010 LW, 100 LBU, 101 LHU | `LoadInstruction<…>` |
+  | `STORE` | funct3 000 SB, 001 SH, 010 SW | `StoreInstruction<…>` |
+  | `OP_IMM` | funct3 000 ADDI, 010 SLTI, 011 SLTIU, 100 XORI, 110 ORI, 111 ANDI; 001 SLLI if funct7 is 0000000; 101 SRLI if funct7 is 0000000, SRAI if it's 0100000 | `ImmediateOpInstruction` |
+  | `OP` | funct7 0000000 with funct3 000 ADD, 001 SLL, 010 SLT, 011 SLTU, 100 XOR, 101 SRL, 110 OR, 111 AND; funct7 0100000 with funct3 000 SUB, 101 SRA | `RegisterOpInstruction` |
+  | `MISC_MEM` | funct3 000, whatever the other bits hold (the spec says to ignore them) | `FenceInstruction` |
+  | `SYSTEM` | exactly 0x00000073 (ECALL) or 0x00100073 (EBREAK) | `SystemInstruction` |
+  | any other opcode | none | `IllegalInstruction` |
+
+  Every encoding the table leaves out is illegal, and some of them are real instructions from other parts of the spec: funct3 011 and 110 of `LOAD` and 011 of `STORE` are RV64's LD, LWU, and SD; funct7 0000001 of `OP` is RV32M's multiply and divide (E4); funct3 001 of `MISC_MEM` is FENCE.I, and the rest of `SYSTEM` is CSR and privileged instructions (E5). For an `OP_IMM` shift, funct7 is the top of the immediate, which the 4.3 extractor cuts out of any word. Examples: `decode(0x00B50633, 0x80000008)` gives a `RegisterOpInstruction` with `AluOp::ADD`, `decode(0x0FF0000F, pc)` gives a `FenceInstruction`, and `decode(0x00000000, pc)` gives an `IllegalInstruction`, and so does `decode(0x02C58533, pc)`, which is RV32M's `mul a0,a1,a2`.
+- [ ] 5.6 **Disassembly**: `disassemble()` returns the instruction exactly as `objdump -d -M no-aliases` prints it, so tests can compare your text with the toolchain's. That's the mnemonic, one space, then the operands separated by commas with no spaces. Registers print by ABI name (`abi_name`, 3.2). Immediates and offsets are signed decimal; shift amounts and U immediates are hex with `0x`; branch and jump targets are the absolute address pc + imm, in hex without `0x`. Hex is lowercase, with no leading zeros.
+
+  | Class | Form | Example |
+  |---|---|---|
+  | `RegisterOpInstruction` | `mnemonic rd,rs1,rs2` | `add a2,a0,a1` |
+  | `ImmediateOpInstruction` | `mnemonic rd,rs1,imm` | `addi a0,zero,-1`, `srai a2,a3,0x1f` |
+  | `LuiInstruction`, `AuipcInstruction` | `mnemonic rd,` then `0x` and the upper 20 bits | `lui a4,0x12345` |
+  | `LoadInstruction` | `mnemonic rd,imm(rs1)` | `lw a5,8(sp)` |
+  | `StoreInstruction` | `mnemonic rs2,imm(rs1)` | `sw a2,-4(sp)` |
+  | `BranchInstruction` | `mnemonic rs1,rs2,target` | `beq a0,a1,8000001c` for the beq at 0x80000014 |
+  | `JalInstruction` | `jal rd,target` | `jal ra,80000024` for a jal at 0x80000014 |
+  | `JalrInstruction` | `jalr rd,imm(rs1)` | `jalr zero,0(ra)` |
+  | `SystemInstruction` | the mnemonic alone | `ecall`, `ebreak` |
+  | `FenceInstruction` | `fence pred,succ`, each set written as the letters of `i`, `o`, `r`, `w` it contains, in that order | `fence iorw,iorw`, `fence r,w` |
+  | `IllegalInstruction` | `illegal 0x` then the word as 8 hex digits | `illegal 0x00000000` |
+
+  The target is computed in 32-bit unsigned arithmetic, so it wraps: the `bge` at 0x58 with offset -4096 prints `fffff058`. objdump has no single form for a word that isn't an instruction, so the `IllegalInstruction` form is this lab's own.
+
+**Worked examples** (every word and every disassembly is from the cross toolchain, linked at the pc shown; "any" means the output doesn't depend on the pc)
+
+| Word | pc | `decode()` gives | `mnemonic()` | `disassemble()` |
+|---|---|---|---|---|
+| 0x00B50633 | 0x80000008 | `RegisterOpInstruction`, `AluOp::ADD`; rd 12, rs1 10, rs2 11 | `add` | `add a2,a0,a1` |
+| 0x40A586B3 | 0x8000000C | `RegisterOpInstruction`, `AluOp::SUB` | `sub` | `sub a3,a1,a0` |
+| 0xFFF00513 | any | `ImmediateOpInstruction`, `AluOp::ADD`; imm 0xFFFFFFFF | `addi` | `addi a0,zero,-1` |
+| 0x41F6D613 | any | `ImmediateOpInstruction`, `AluOp::SRA`; imm 31, the shift amount | `srai` | `srai a2,a3,0x1f` |
+| 0x80073693 | any | `ImmediateOpInstruction`, `AluOp::SLTU`; imm 0xFFFFF800 | `sltiu` | `sltiu a3,a4,-2048` |
+| 0x12345737 | any | `LuiInstruction`; imm 0x12345000, rs1 0 | `lui` | `lui a4,0x12345` |
+| 0x00001517 | 0x80000000 | `AuipcInstruction`; imm 0x00001000 | `auipc` | `auipc a0,0x1` |
+| 0x00812783 | any | `LoadInstruction<std::int32_t>`; rd 15, rs1 2, imm 8 | `lw` | `lw a5,8(sp)` |
+| 0x7FF3C303 | any | `LoadInstruction<std::uint8_t>`; imm 2047 | `lbu` | `lbu t1,2047(t2)` |
+| 0xFEC12E23 | 0x80000010 | `StoreInstruction<std::uint32_t>`; rs1 2, rs2 12, imm 0xFFFFFFFC, rd 0 | `sw` | `sw a2,-4(sp)` |
+| 0x00B50463 | 0x80000014 | `BranchInstruction<std::equal_to<>, std::uint32_t>`; imm 8 | `beq` | `beq a0,a1,8000001c` |
+| 0x010000EF | 0x80000014 | `JalInstruction`; rd 1, imm 16 | `jal` | `jal ra,80000024` |
+| 0x00008067 | any | `JalrInstruction`; rd 0, rs1 1, imm 0 | `jalr` | `jalr zero,0(ra)` |
+| 0x00000073 | any | `SystemInstruction`; imm 0 | `ecall` | `ecall` |
+| 0x00100073 | any | `SystemInstruction`; imm 1 | `ebreak` | `ebreak` |
+| 0x0FF0000F | any | `FenceInstruction`; imm 0x0FF | `fence` | `fence iorw,iorw` |
+| 0x00000000 | any | `IllegalInstruction` | `illegal` | `illegal 0x00000000` |
+| 0x02C58533 | any | `IllegalInstruction`: RV32M's `mul a0,a1,a2` | `illegal` | `illegal 0x02c58533` |
+
+**Tests** (one per objective, with its number: T5.4 checks 5.4. Each test uses only its own objective and earlier ones, so it can pass as soon as its objective is done.)
+- [ ] T5.1 **`Instruction`** (5.1): compile-time checks, as in T2.1, that it's abstract and has a virtual destructor. Then, through a small class derived from it inside the test, `pc()` and `word()` return what the constructor got, and `rd()`, `rs1()`, `rs2()`, and `imm()` start at 0, all callable on a `const` object.
+- [ ] T5.2 **`AluOp`** (5.2): compile-time checks that it's an enum class, so it doesn't convert to an integer on its own, and that all 10 enumerators exist.
+- [ ] T5.3 **The nine non-template classes** (5.3), each built directly in the test from Lab 4 vector words, with the `AluOp` from the 5.2 table: every one reports the right `kind()`, `mnemonic()`, fields, and query answers from the 5.3 tables. Fields the format doesn't have are 0, and shift immediates report the shift amount, not the whole `imm_i`. Each `AluOp` gives its 5.2 mnemonic in `RegisterOpInstruction` and, except SUB, in `ImmediateOpInstruction`. An `IllegalInstruction` reports `Illegal`, `illegal`, every query `false`, and every field 0.
+- [ ] T5.4 **The 14 template instantiations** (5.4), each built directly in the test from Lab 4 vector words: the five loads, three stores, and six branches report the right `kind()`, `mnemonic()`, fields, and query answers.
+- [ ] T5.5 **`decode()`** (5.5): every Lab 4 vector (all 40 instructions, 66 rows) decodes to the right class, checked with `kind()`, and the right `mnemonic()`, which also shows that it chose the right `AluOp` or template arguments. So do the 5.5 examples. Illegal encodings produce `IllegalInstruction`: all zeros, all ones, an unused opcode, JALR with a nonzero funct3, an R-type with a bad funct7 (including RV32M's MUL), a branch with funct3 010 or 011, the RV64-only LD, LWU, and SD, shift immediates with the wrong upper bits, FENCE.I, a CSR instruction, and an ECALL with a nonzero field. Those words come from the cross assembler (`tests/programs/lab5/illegal.S`). And it never returns null or throws, over a sweep of every opcode with every funct3 and several funct7 values.
+- [ ] T5.6 **Disassembly** (5.6): every Lab 4 vector, decoded, prints exactly objdump's text, and so do the 5.6 examples at their pcs (`beq a0,a1,8000001c` for the beq at 0x80000014), the wrapped target (`fffff058`), and an `IllegalInstruction` (`illegal 0x00000000`).
+
+**Done when:** all tests pass in the sanitizer build: every Lab 4 vector decodes to the right class with the right fields and queries, and prints exactly what objdump printed.
+
+**C++ focus:** abstract classes and pure virtual functions, `protected` constructors, `override` and `final`, virtual destructors, name hiding, `std::unique_ptr` and `std::make_unique`, the factory and null object patterns, class templates derived from a non-template base, standard function objects (`std::less<>` and friends), type traits (`std::is_signed_v`, `std::is_same_v`), `if constexpr`.
 
 ---
 
@@ -969,11 +1154,11 @@ How it ties to earlier pieces:
 
 **Goal:** every instruction computes the right result, branch decision, target, and memory effect.
 
-**Where this fits:** the CPU's execute, memory, and write back stages (Lab 7) are just calls to these methods, and the pipeline (Phase 5) calls the same ones. For one instruction the order is: the CPU gives it its operand values, then calls `execute()`, `access_memory()`, and `write_back()`. Afterwards `result()` holds the value for rd and `next_pc()` holds the address of the next instruction. (This is option A from hint 6.1; adjust the names if you pick option B.)
+**Where this fits:** the CPU's execute, memory, and write back stages (Lab 7) are just calls to the stage methods you add to `Instruction` in 6.1, and the pipeline (Phase 5) calls the same ones. For one instruction the order is: the CPU gives it its operand values, then calls `execute()`, `access_memory()`, and `write_back()`. Afterwards `result()` holds the value for rd and `next_pc()` holds the address of the next instruction. (This is option A from hint 6.1; adjust the names if you pick option B.)
 
 **Objectives**
-- [ ] 6.1 Decide where operand values and results live (inside the instruction object, or in separate stage structs) and record it in `DESIGN.md`.
-- [ ] 6.2 **ALU**: `alu(op, a, b)` takes an `AluOp` (ADD, SUB, SLL, SLT, SLTU, XOR, SRL, SRA, OR, AND) and two `Word`s, and returns a `Word`. The I-type instructions reuse it, with the immediate as `b`. See the examples below.
+- [ ] 6.1 Decide where operand values and results live (inside the instruction object, or in separate stage structs) and record it in `DESIGN.md`. Then add the stage behavior to `Instruction` in the shape that choice needs. Under option A that's `execute()`, `access_memory(Bus&)`, and `write_back(RegisterFile&)`; 6.3 to 6.7 say what each one does.
+- [ ] 6.2 **ALU**: `alu(op, a, b)` takes the `AluOp` from 5.2 (ADD, SUB, SLL, SLT, SLTU, XOR, SRL, SRA, OR, AND) and two `Word`s, and returns a `Word`. The I-type instructions reuse it, with the immediate as `b`. See the examples below.
 - [ ] 6.3 **Arithmetic, logic, shifts, and comparisons**: `execute()` computes `result()`. Examples: `addi a0, zero, -1` gives 0xFFFFFFFF. `sltiu a0, a1, -1` with a1 = 5 gives 1, because the immediate becomes 0xFFFFFFFF and the comparison is unsigned.
 - [ ] 6.4 **Control flow and upper immediates**: `next_pc()` is pc + 4 unless the instruction transfers control. Examples:
   - `beq a0, a1, +8` at 0x80000014: 0x80000018 when a0 and a1 differ, 0x8000001C when they're equal.

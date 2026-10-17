@@ -29,7 +29,7 @@ All the cutting is done by your Lab 1 helpers. Almost every function in this lab
 | `opcode`, `funct3`, `funct7` | 4.3 | `decode()`, to work out which instruction it is |
 | `rd`, `rs1`, `rs2` | 4.3 | `decode()`; the register file takes them (Lab 3); the disassembler prints them with `abi_name` (Lab 5) |
 | `imm_i`, `imm_s`, `imm_b`, `imm_u`, `imm_j` | 4.4 | `decode()` stores the immediate; Lab 6 adds it to a register value or to the pc |
-| `vectors.S`, `rv32i_vectors.hpp` | 4.5 | T4.3 now; T5.1 and T5.3 in Lab 5 |
+| `vectors.S`, `rv32i_vectors.hpp` | 4.5 | T4.3 now; T5.3 to T5.6 in Lab 5 |
 
 **Skills practiced**
 - `enum class` with a chosen underlying type, and `static_cast` in both directions
@@ -389,7 +389,7 @@ These were all checked with the cross toolchain from Lab 0 (binutils 2.35):
 
 ### The shared table: `rv32i_vectors.hpp`
 
-You'll type around 60 rows once. T4.3 checks the fields against them now, and in Lab 5, T5.1 and T5.3 check decoding and disassembly against the same rows. So the table goes in a header that both test files include, not inside `fields_test.cpp`.
+You'll type around 60 rows once. T4.3 checks the fields against them now, and in Lab 5, T5.3 to T5.6 check the classes, decoding, and disassembly against the same rows. So the table goes in a header that both test files include, not inside `fields_test.cpp`.
 
 A table in a header, on an unrelated example:
 

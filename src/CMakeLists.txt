@@ -7,6 +7,8 @@ add_library(rvcore STATIC
   hex_dump.cpp
   register_file.cpp
   arch_state.cpp
+  instruction.cpp
+  arith_instructions.cpp
 )
 target_include_directories(rvcore PUBLIC ${PROJECT_SOURCE_DIR}/include)
 target_compile_features(rvcore PUBLIC cxx_std_20)

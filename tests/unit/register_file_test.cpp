@@ -1,3 +1,7 @@
+// Turn a T item's tests off by commenting out its line. Each block below builds on its own.
+#define RUN_T3_1
+#define RUN_T3_2
+
 #include <gtest/gtest.h>
 
 #include <array>
@@ -11,6 +15,9 @@
 using rvsim::RegisterFile;
 using rvsim::RegIndex;
 using rvsim::Word;
+
+// ==== T3.1: a new register file reads 0; x0 ignores writes; x1 to x31 round-trip ====
+#ifdef RUN_T3_1
 
 // 3.1: the design, pinned down at compile time. If one is wrong, this file doesn't compile.
 static_assert(RegisterFile::numRegisters == 32);
@@ -33,8 +40,6 @@ value_for(std::size_t i) {
 }
 
 }
-
-// ---- T3.1: a new register file reads 0; x0 ignores writes; x1 to x31 round-trip ----
 
 TEST(TestingRegisterFile, NewRegisterFileReadsZeroEverywhere) {
     const RegisterFile regs;
@@ -99,7 +104,23 @@ TEST(TestingRegisterFile, EqualOnlyWhenEveryRegisterMatches) {
     EXPECT_EQ(a, b);
 }
 
-// ---- T3.2: ABI names ----
+// Beyond T3.1 (optional): an index above 31 is a bug in the simulator, so read and write stop
+// at their assert. As in test_bits.cpp, asserts are compiled out when NDEBUG is defined, so the
+// test skips itself in release builds.
+TEST(TestingRegisterFileDeathTest, IndexAbove31StopsAtTheAssert) {
+#ifdef NDEBUG
+    GTEST_SKIP() << "assert is compiled out when NDEBUG is defined";
+#else
+    RegisterFile regs;
+    EXPECT_DEATH((void)regs.read(32), "index < numRegisters");
+    EXPECT_DEATH(regs.write(32, 1), "index < numRegisters");
+#endif
+}
+
+#endif  // RUN_T3_1
+
+// ==== T3.2: ABI names ====
+#ifdef RUN_T3_2
 
 // The T3.2 rows.
 TEST(TestingAbiName, Examples) {
@@ -123,18 +144,14 @@ TEST(TestingAbiName, AllThirtyTwoInOrder) {
         EXPECT_EQ(rvsim::abi_name(static_cast<RegIndex>(i)), expected[i]) << "x" << i;
 }
 
-// ---- Optional: death tests ----
-
-// An index above 31 is a bug in the simulator, so read, write, and abi_name stop at their
-// assert. As in test_bits.cpp, asserts are compiled out when NDEBUG is defined, so the test
-// skips itself in release builds.
-TEST(TestingRegisterFileDeathTest, IndexAbove31StopsAtTheAssert) {
+// Beyond T3.2 (optional): an index above 31 stops abi_name at its assert too. Skipped in
+// release builds, like the T3.1 death test.
+TEST(TestingAbiNameDeathTest, IndexAbove31StopsAtTheAssert) {
 #ifdef NDEBUG
     GTEST_SKIP() << "assert is compiled out when NDEBUG is defined";
 #else
-    RegisterFile regs;
-    EXPECT_DEATH((void)regs.read(32), "index < numRegisters");
-    EXPECT_DEATH(regs.write(32, 1), "index < numRegisters");
     EXPECT_DEATH((void)rvsim::abi_name(32), "index < RegisterFile::numRegisters");
 #endif
 }
+
+#endif  // RUN_T3_2

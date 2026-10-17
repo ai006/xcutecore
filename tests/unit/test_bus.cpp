@@ -1,3 +1,7 @@
+// Turn a T item's tests off by commenting out its line. Each block below builds on its own.
+#define RUN_T2_5
+#define RUN_T2_6
+
 #include <gtest/gtest.h>
 
 #include <cstddef>
@@ -19,32 +23,29 @@ using rvsim::Memory;
 using rvsim::MemoryFault;
 using rvsim::Word;
 
-// 2.6: BusValue accepts exactly std::uint8_t, std::uint16_t, and std::uint32_t.
-static_assert(rvsim::BusValue<std::uint8_t>);
-static_assert(rvsim::BusValue<std::uint16_t>);
-static_assert(rvsim::BusValue<std::uint32_t>);
-static_assert(!rvsim::BusValue<std::uint64_t>);  // 8 bytes is not a bus width
-static_assert(!rvsim::BusValue<int>);            // what a plain literal like 0xFF is
-static_assert(!rvsim::BusValue<bool>);           // std::unsigned_integral would accept these two
-static_assert(!rvsim::BusValue<char16_t>);
+// ==== Shared by more than one block ====
+//
+// `inline` matters here. With every block that calls a helper switched off, a plain function
+// would be unused, and -Wall -Werror stops the build on an unused function. An unused inline
+// function isn't even compiled into the program, so switching blocks off is always safe.
 
-// 2.6: what must not compile, checked at compile time. Each concept asks "does this call
-// compile?", so these static_asserts fail the build if the answer ever changes.
-template <typename T>
-concept CanTypedWrite = requires(Bus& bus, T value) { bus.write(Addr{0}, value); };
+namespace {
 
-template <typename T>
-concept CanTypedRead = requires(Bus& bus) { bus.read<T>(Addr{0}); };
+// Maps a new Memory of `size` bytes at base, and returns a raw pointer so the test can look
+// inside the device after the bus has taken it. After std::move the unique_ptr is null, so the
+// pointer has to be saved first. The bus owns the memory; the raw pointer only looks at it,
+// and it stays valid as long as the bus lives.
+inline Memory* map_memory(Bus& bus, Addr base, std::size_t size) {
+    std::unique_ptr<Memory> memory = std::make_unique<Memory>(size);
+    Memory* view = memory.get();
+    bus.map(base, std::move(memory));
+    return view;
+}
 
-static_assert(CanTypedWrite<std::uint8_t>);
-static_assert(CanTypedWrite<std::uint16_t>);
-static_assert(CanTypedWrite<std::uint32_t>);
-static_assert(!CanTypedWrite<int>);  // bus.write(0x80000004, 0xFF) must not compile
-static_assert(!CanTypedWrite<bool>);
-static_assert(CanTypedRead<std::uint8_t>);
-static_assert(CanTypedRead<std::uint16_t>);
-static_assert(CanTypedRead<std::uint32_t>);
-static_assert(!CanTypedRead<std::uint64_t>);  // bus.read<std::uint64_t>(...) must not compile
+}
+
+// ==== T2.5: routing, unmapped addresses, running off a device, fetch faults, overlaps ====
+#ifdef RUN_T2_5
 
 namespace {
 
@@ -59,20 +60,7 @@ std::optional<MemoryFault> catch_fault(F access) {
     return std::nullopt;
 }
 
-// Maps a new Memory of `size` bytes at base, and returns a raw pointer so the test can look
-// inside the device after the bus has taken it. After std::move the unique_ptr is null, so the
-// pointer has to be saved first. The bus owns the memory; the raw pointer only looks at it,
-// and it stays valid as long as the bus lives.
-Memory* map_memory(Bus& bus, Addr base, std::size_t size) {
-    std::unique_ptr<Memory> memory = std::make_unique<Memory>(size);
-    Memory* view = memory.get();
-    bus.map(base, std::move(memory));
-    return view;
 }
-
-}
-
-// ---- T2.5: routing, unmapped addresses, running off a device, fetch faults, overlaps ----
 
 // With two devices mapped, each address reaches the right device at the right offset.
 // Checked through the Memory objects themselves, not only through the bus.
@@ -247,7 +235,37 @@ TEST(TestingBus, NullAndEmptyDevicesAreRejected) {
     EXPECT_THROW(bus.map(0x1000, std::make_unique<Memory>(0)), std::invalid_argument);
 }
 
-// ---- 2.6 and T2.6: typed access ----
+#endif  // RUN_T2_5
+
+// ==== T2.6: typed access ====
+#ifdef RUN_T2_6
+
+// 2.6: BusValue accepts exactly std::uint8_t, std::uint16_t, and std::uint32_t.
+static_assert(rvsim::BusValue<std::uint8_t>);
+static_assert(rvsim::BusValue<std::uint16_t>);
+static_assert(rvsim::BusValue<std::uint32_t>);
+static_assert(!rvsim::BusValue<std::uint64_t>);  // 8 bytes is not a bus width
+static_assert(!rvsim::BusValue<int>);            // what a plain literal like 0xFF is
+static_assert(!rvsim::BusValue<bool>);           // std::unsigned_integral would accept these two
+static_assert(!rvsim::BusValue<char16_t>);
+
+// 2.6: what must not compile, checked at compile time. Each concept asks "does this call
+// compile?", so these static_asserts fail the build if the answer ever changes.
+template <typename T>
+concept CanTypedWrite = requires(Bus& bus, T value) { bus.write(Addr{0}, value); };
+
+template <typename T>
+concept CanTypedRead = requires(Bus& bus) { bus.read<T>(Addr{0}); };
+
+static_assert(CanTypedWrite<std::uint8_t>);
+static_assert(CanTypedWrite<std::uint16_t>);
+static_assert(CanTypedWrite<std::uint32_t>);
+static_assert(!CanTypedWrite<int>);  // bus.write(0x80000004, 0xFF) must not compile
+static_assert(!CanTypedWrite<bool>);
+static_assert(CanTypedRead<std::uint8_t>);
+static_assert(CanTypedRead<std::uint16_t>);
+static_assert(CanTypedRead<std::uint32_t>);
+static_assert(!CanTypedRead<std::uint64_t>);  // bus.read<std::uint64_t>(...) must not compile
 
 // The 2.6 examples.
 TEST(TestingBus, TypedAccessExamples) {
@@ -322,3 +340,5 @@ TYPED_TEST(TestingBusTyped, FitsExactlyAtTheEndOfMemory) {
     EXPECT_THROW((void)this->bus.template read<TypeParam>(last + 1), MemoryFault);
     EXPECT_THROW(this->bus.write(last + 1, value), MemoryFault);
 }
+
+#endif  // RUN_T2_6

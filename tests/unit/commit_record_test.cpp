@@ -1,3 +1,6 @@
+// Turn a T item's tests off by commenting out its line. Each block below builds on its own.
+#define RUN_T3_4
+
 #include <gtest/gtest.h>
 
 #include <concepts>
@@ -13,6 +16,9 @@ using rvsim::CommitRecord;
 using rvsim::MemWrite;
 using rvsim::RegWrite;
 using rvsim::Word;
+
+// ==== T3.4: the 3.4 examples, and records that differ in one detail are unequal ====
+#ifdef RUN_T3_4
 
 // 3.4: plain aggregates (so designated initializers work), each with a defaulted operator==.
 static_assert(std::is_aggregate_v<RegWrite>);
@@ -52,8 +58,7 @@ sw_record() {
 
 }
 
-// ---- 3.4: the two examples hold what they should ----
-
+// 3.4: the two examples hold what they should.
 TEST(TestingCommitRecord, SubExample) {
     const CommitRecord record = sub_record();
 
@@ -86,8 +91,6 @@ TEST(TestingCommitRecord, DefaultIsZeroWithNoWrites) {
     EXPECT_FALSE(record.regWrite.has_value());
     EXPECT_FALSE(record.memWrite.has_value());
 }
-
-// ---- T3.4: records that differ in one detail are unequal ----
 
 TEST(TestingCommitRecord, IdenticalRecordsAreEqual) {
     EXPECT_EQ(sub_record(), sub_record());
@@ -145,3 +148,5 @@ TEST(TestingCommitRecord, EveryFieldIsCompared) {
     record.memWrite = std::nullopt;
     EXPECT_NE(record, sw_record());
 }
+
+#endif  // RUN_T3_4

@@ -1,9 +1,17 @@
+// Turn a T item's tests off by commenting out its line. Each block below builds on its own.
+#define RUN_T1_1
+#define RUN_T1_2
+#define RUN_1_6     // optional objective 1.6, to_binary_string (it has no T item)
+
 #include <gtest/gtest.h>
 
 #include "rvsim/bits.hpp"
 
 // tutorial on Google Test(GTest)
 //https://helpmetest.com/blog/gtest-tutorial-cpp-unit-testing/
+
+// ==== T1.1: compile-time checks on rows of the worked-examples table ====
+#ifdef RUN_T1_1
 
 static_assert(rvsim::bits(0x00B50633, 11, 7) == 12);           // rd of add a2, a0, a1
 static_assert(rvsim::bits(0xDEADBEEF, 31, 0) == 0xDEADBEEF);   // full width
@@ -12,6 +20,10 @@ static_assert(!rvsim::bit(0x00B50633, 30));                    // add a2, a0, a1
 static_assert(rvsim::sign_extend(0x7FF, 12) == 0x000007FF);    // largest 12-bit value
 static_assert(rvsim::sign_extend(0xFFF, 12) == 0xFFFFFFFF);    // -1
 
+#endif  // RUN_T1_1
+
+// ==== T1.2: runtime tests on the worked-examples table ====
+#ifdef RUN_T1_2
 
 TEST(TestingBits, ExtractSubstring1) {
   EXPECT_EQ(rvsim::bits(0x00B50633, 6, 0), 0x33u);
@@ -69,7 +81,14 @@ TEST(TestingBits, SignExtend6) {
   EXPECT_EQ(rvsim::sign_extend(0x12345678, 32), 0x12345678);
 }
 
+#endif  // RUN_T1_2
+
+// ==== 1.6 (optional, no T item): to_binary_string ====
+#ifdef RUN_1_6
+
 TEST(TestingBits, toBinaryString) {
   std::string str = "0101 0000 0110 0011 1100 1110 1101 1010";
   EXPECT_EQ(rvsim::to_binary_string(0x5063CEDA), str);
 }
+
+#endif  // RUN_1_6
