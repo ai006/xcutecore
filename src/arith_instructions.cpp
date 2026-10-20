@@ -31,7 +31,7 @@ RegisterOpInstruction::extract_fields() noexcept{
     _kind = InstructionKind::RegisterOp;
     _mnemonic = extract_mnemonic(aluOp);
 
-    _disassemble = std::format("{} , {}, {}, {}", _mnemonic,
+    _disassemble = std::format("{}  {}, {}, {}", _mnemonic,
                                                 rvsim::abi_name(_rd),
                                                 rvsim::abi_name(_rs1),
                                                 rvsim::abi_name(_rs2));
@@ -61,7 +61,7 @@ ImmediateOpInstruction::extract_fields() noexcept {
     _kind = InstructionKind::ImmediateOp;
     _mnemonic = extract_mnemonic_imm(aluOp);
 
-    _disassemble = std::format("{} , {}, {}, {}", _mnemonic,
+    _disassemble = std::format("{}  {}, {}, {}", _mnemonic,
                                                 rvsim::abi_name(_rd),
                                                 rvsim::abi_name(_rs1),
                                                 _imm);
@@ -82,7 +82,7 @@ LuiInstruction::extract_fields() noexcept{
     // instruction kind 
     _kind = InstructionKind::Lui;
     _mnemonic = "lui";
-    _disassemble = std::format("{} , {}, {}, {}", _mnemonic,
+    _disassemble = std::format("{}  {}, {}, {}", _mnemonic,
                                                 rvsim::abi_name(_rd),
                                                 rvsim::abi_name(_rs1),
                                                 _imm);
@@ -104,7 +104,7 @@ AuipcInstruction::extract_fields() noexcept{
     _kind = InstructionKind::Auipc;
     _mnemonic = "auipc";
 
-    _disassemble = std::format("{} , {}, {}, {}", _mnemonic,
+    _disassemble = std::format("{}  {}, {}, {}", _mnemonic,
                                                 rvsim::abi_name(_rd),
                                                 rvsim::abi_name(_rs1),
                                                 _imm);

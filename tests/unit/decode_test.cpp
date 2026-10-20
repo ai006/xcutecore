@@ -11,16 +11,16 @@
 #define RUN_T5_3_IMMEDIATE_OP   // ImmediateOpInstruction (addi, slli, ...)
 #define RUN_T5_3_LUI            // LuiInstruction
 #define RUN_T5_3_AUIPC          // AuipcInstruction
-// #define RUN_T5_3_JAL            // JalInstruction
-// #define RUN_T5_3_JALR           // JalrInstruction
-// #define RUN_T5_3_SYSTEM         // SystemInstruction (ecall, ebreak)
-// #define RUN_T5_3_FENCE          // FenceInstruction
-// #define RUN_T5_3_ILLEGAL        // IllegalInstruction
+#define RUN_T5_3_JAL            // JalInstruction
+#define RUN_T5_3_JALR           // JalrInstruction
+#define RUN_T5_3_SYSTEM         // SystemInstruction (ecall, ebreak)
+#define RUN_T5_3_FENCE          // FenceInstruction
+#define RUN_T5_3_ILLEGAL        // IllegalInstruction
 
 // T5.4: the three class templates (5.4), one switch per template for all its instantiations
-// #define RUN_T5_4_LOAD           // LoadInstruction<T> (lb, lh, lw, lbu, lhu)
-// #define RUN_T5_4_STORE          // StoreInstruction<T> (sb, sh, sw)
-// #define RUN_T5_4_BRANCH         // BranchInstruction<Compare, T> (beq, bne, blt, ...)
+#define RUN_T5_4_LOAD           // LoadInstruction<T> (lb, lh, lw, lbu, lhu)
+#define RUN_T5_4_STORE          // StoreInstruction<T> (sb, sh, sw)
+#define RUN_T5_4_BRANCH         // BranchInstruction<Compare, T> (beq, bne, blt, ...)
 
 #include <gtest/gtest.h>
 
