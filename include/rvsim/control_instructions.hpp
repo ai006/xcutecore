@@ -1,6 +1,8 @@
 #ifndef CONTROL_INSTRUCTIONS
 #define CONTROL_INSTRUCTIONS
 
+#include <format>
+
 #include "rvsim/instruction.hpp"
 #include "rvsim/fields.hpp"
 #include "rvsim/register_file.hpp"

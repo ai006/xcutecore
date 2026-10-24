@@ -1,6 +1,4 @@
 
-#include <format>
-
 #include "rvsim/control_instructions.hpp"
 
 

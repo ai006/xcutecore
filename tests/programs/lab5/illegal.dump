@@ -1,0 +1,45 @@
+
+build/lab5/illegal.o:     file format elf64-littleriscv
+
+
+Disassembly of section .text:
+
+0000000000000000 <_start>:
+   0:	0000                	c.unimp
+   2:	0000                	c.unimp
+   4:	ffff                	0xffff
+   6:	ffff                	0xffff
+   8:	00c5850b          	0xc5850b
+   c:	00c5857b          	0xc5857b
+  10:	4501                	c.li	a0,0
+  12:	0000                	c.unimp
+  14:	0005a507          	flw	fa0,0(a1)
+  18:	00c5f553          	fadd.s	fa0,fa1,fa2
+  1c:	0015851b          	addiw	a0,a1,1
+  20:	00c5853b          	addw	a0,a1,a2
+  24:	000510e7          	0x510e7
+  28:	000570e7          	0x570e7
+  2c:	fcb52ae3          	0xfcb52ae3
+  30:	fcb538e3          	0xfcb538e3
+  34:	0005b503          	ld	a0,0(a1)
+  38:	0005e503          	lwu	a0,0(a1)
+  3c:	0005f503          	0x5f503
+  40:	00a5b023          	sd	a0,0(a1)
+  44:	00a5c023          	0xa5c023
+  48:	00a5f023          	0xa5f023
+  4c:	02c58533          	mul	a0,a1,a2
+  50:	02c5d533          	divu	a0,a1,a2
+  54:	40c59533          	0x40c59533
+  58:	80c58533          	0x80c58533
+  5c:	02059513          	slli	a0,a1,0x20
+  60:	4205d513          	srai	a0,a1,0x20
+  64:	40059513          	0x40059513
+  68:	fff5d513          	0xfff5d513
+  6c:	0000100f          	fence.i
+  70:	30059573          	csrrw	a0,mstatus,a1
+  74:	c0002573          	csrrs	a0,cycle,zero
+  78:	30200073          	mret
+  7c:	10500073          	wfi
+  80:	000000f3          	0xf3
+  84:	00050073          	0x50073
+  88:	001000f3          	0x1000f3
